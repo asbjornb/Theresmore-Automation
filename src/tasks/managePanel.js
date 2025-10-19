@@ -20,6 +20,12 @@ const createPanel = (switchScriptState) => {
       <button type="button" class="btn btn-blue mb-2 taManageOptions">Manage Options</button>
     </div>
     <div class="mb-2">
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" class="taAssistMode" ${state.options.assistMode?.enabled ? 'checked' : ''}>
+        <span class="text-sm">Assist Mode (builds at 90% cap when idle 60s)</span>
+      </label>
+    </div>
+    <div class="mb-2">
       Legacies: <span class="legacyCount">0</span>; LP: <span class="lpCount">0</span>
     </div>
   </p>
@@ -28,6 +34,14 @@ const createPanel = (switchScriptState) => {
   controlPanel = document.querySelector(`div#${id}`)
   controlPanel.querySelector('.taScriptState').addEventListener('click', switchScriptState)
   controlPanel.querySelector('.taManageOptions').addEventListener('click', manageOptions.togglePanel)
+
+  // Add Assist Mode toggle handler
+  controlPanel.querySelector('.taAssistMode').addEventListener('change', (e) => {
+    if (!state.options.assistMode) {
+      state.options.assistMode = { idleSeconds: 60 }
+    }
+    state.options.assistMode.enabled = e.target.checked
+  })
 }
 
 const updatePanel = () => {
