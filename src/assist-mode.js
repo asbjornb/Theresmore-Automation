@@ -1,4 +1,4 @@
-import { buildings } from './data'
+import { buildings, tech } from './data'
 import { CONSTANTS, navigation, selectors, logger, sleep, state, reactUtil, keyGen } from './utils'
 
 // Buildings to never auto-build (strategic choices or negative effects)
@@ -14,18 +14,40 @@ const BLACKLIST = [
   'fate_shrine_f',
 ]
 
+// Research to never auto-research (triggers dangerous fights or resets)
+const UNSAFE_RESEARCH = [
+  'kobold_nation', // Triggers dangerous fight
+  'barbarian_tribes', // Triggers dangerous fight
+  'orcish_threat', // Triggers dangerous fight
+  'huge_cave_t', // Triggers dangerous fight
+  'mindless_evil', // Triggers dangerous fight
+  'moonlight_night', // Triggers fight
+  'dragon_assault', // Triggers fight
+  'mysterious_robbery', // Triggers fight
+  'fallen_angel', // Triggers fight
+  'orc_horde', // Triggers fight
+  'launch_annhilator', // Resets the game
+]
+
 // Track user activity
 let lastUserActivity = Date.now()
-let lastAssistAction = 0
+let lastBuildAction = 0
+let lastResearchAction = 0
+let lastPrayerAction = 0
 let lastActiveTab = null
-let assistModeIsClicking = false // Flag to ignore assist mode's own clicks
+let assistModeIsActing = false // Flag to ignore all assist mode actions (clicks, navigation, etc.)
+
+// Cooldown timings
+const BUILD_COOLDOWN = 5000 // 5 seconds between builds
+const RESEARCH_COOLDOWN = 120000 // 2 minutes between research checks
+const PRAYER_COOLDOWN = 120000 // 2 minutes between prayer checks
 
 // Monitor user interactions
 const initActivityMonitor = () => {
   if (typeof window !== 'undefined') {
-    // Reset idle timer on user clicks (but not assist mode's clicks)
+    // Reset idle timer on user clicks (but not assist mode's actions)
     document.addEventListener('click', () => {
-      if (assistModeIsClicking) {
+      if (assistModeIsActing) {
         return // Ignore assist mode's own clicks
       }
       lastUserActivity = Date.now()
@@ -34,14 +56,21 @@ const initActivityMonitor = () => {
 
     // Reset idle timer on keypresses
     document.addEventListener('keypress', () => {
+      if (assistModeIsActing) {
+        return // Ignore assist mode's own keypresses (if any)
+      }
       lastUserActivity = Date.now()
       logger({ msgLevel: 'debug', msg: 'Assist Mode: Activity detected (keypress)' })
     })
 
-    // Watch for tab changes as user activity (but only ACTUAL changes)
+    // Watch for tab changes as user activity (but only ACTUAL user changes, not assist mode)
     const tabContainer = document.querySelector('#maintabs-container [role="tablist"]')
     if (tabContainer) {
       const observer = new MutationObserver(() => {
+        if (assistModeIsActing) {
+          return // Ignore assist mode's navigation
+        }
+
         const activeTab = document.querySelector('[role="tab"][aria-selected="true"]')
         if (activeTab) {
           const currentTab = activeTab.textContent
@@ -70,10 +99,16 @@ const isUserIdle = () => {
   return idleTime > idleThreshold
 }
 
-// Check if enough time has passed since last assist action (prevent spam)
-const canAssist = () => {
-  const timeSinceLastAction = Date.now() - lastAssistAction
-  return timeSinceLastAction > 5000 // At least 5 seconds between assists
+// Check if enough time has passed since last build action (prevent spam)
+const canBuild = () => {
+  const timeSinceLastAction = Date.now() - lastBuildAction
+  return timeSinceLastAction > BUILD_COOLDOWN
+}
+
+// Check if enough time has passed since last research action
+const canResearch = () => {
+  const timeSinceLastAction = Date.now() - lastResearchAction
+  return timeSinceLastAction > RESEARCH_COOLDOWN
 }
 
 // Check if a building is blacklisted
@@ -244,6 +279,101 @@ const getBuildingsThatConsume = (resourceId) => {
     })
 }
 
+// Find research that consumes capped resources (safe research only)
+const getResearchThatConsumes = (resourceIds) => {
+  return tech.filter((research) => {
+    if (!research.req) return false
+
+    // Skip unsafe research (triggers fights or resets)
+    if (UNSAFE_RESEARCH.includes(research.id)) {
+      return false
+    }
+
+    // Skip research with confirmation dialogs (usually mutually exclusive choices)
+    if (research.confirm) {
+      return false
+    }
+
+    // Check if research requires any of the capped resources
+    return research.req.some((req) => req.type === 'resource' && resourceIds.includes(req.id))
+  })
+}
+
+// Try to research something to spend capped resources
+const tryResearchAtCap = async () => {
+  const cappedResources = getResourcesAtCap()
+
+  if (cappedResources.length === 0) {
+    return { researched: false, reason: 'no_resources_at_cap' }
+  }
+
+  const cappedResourceIds = cappedResources.map((r) => r.id)
+
+  logger({
+    msgLevel: 'debug',
+    msg: `Assist Mode: Checking research for capped resources: ${cappedResourceIds.join(', ')}`,
+  })
+
+  // Set flag to ignore all automated actions
+  assistModeIsActing = true
+
+  try {
+    // Navigate to Research page if not already there
+    const onResearchPage = navigation.checkPage(CONSTANTS.PAGES.RESEARCH)
+
+    if (!onResearchPage) {
+      logger({ msgLevel: 'debug', msg: 'Assist Mode: Navigating to Research page' })
+      await navigation.switchPage(CONSTANTS.PAGES.RESEARCH)
+      await sleep(1000)
+    }
+
+    // Get all research buttons
+    const buttons = selectors.getAllButtons(true)
+
+    // Find research that uses capped resources
+    const researchOptions = getResearchThatConsumes(cappedResourceIds)
+
+    for (const research of researchOptions) {
+      const researchKey = keyGen.research.key(research.id)
+
+      // Find the button for this research
+      const button = buttons.find((btn) => {
+        const id = reactUtil.getNearestKey(btn, 7)
+        return id === researchKey && !btn.classList.toString().includes('btn-off')
+      })
+
+      if (button) {
+        // Find which capped resource this research uses
+        const usedResource = research.req.find((req) => req.type === 'resource' && cappedResourceIds.includes(req.id))
+
+        logger({
+          msgLevel: 'info',
+          msg: `Assist Mode: Researching ${research.id} to spend ${usedResource.id}`,
+        })
+
+        button.click()
+        lastResearchAction = Date.now()
+        await sleep(500)
+
+        // Navigate back to Build page
+        await navigation.switchPage(CONSTANTS.PAGES.BUILD)
+        await sleep(500)
+
+        return { researched: true, research: research.id, resource: usedResource.id }
+      }
+    }
+
+    // Navigate back to Build page
+    await navigation.switchPage(CONSTANTS.PAGES.BUILD)
+    await sleep(500)
+
+    return { researched: false, reason: 'no_affordable_research' }
+  } finally {
+    // Always clear the flag
+    assistModeIsActing = false
+  }
+}
+
 // Try to build something to spend capped resources
 const tryBuildAtCap = async () => {
   const cappedResources = getResourcesAtCap()
@@ -299,11 +429,11 @@ const tryBuildAtCap = async () => {
         })
 
         // Set flag before clicking to prevent resetting idle timer
-        assistModeIsClicking = true
+        assistModeIsActing = true
         button.click()
-        assistModeIsClicking = false
+        assistModeIsActing = false
 
-        lastAssistAction = Date.now()
+        lastBuildAction = Date.now()
         await sleep(500)
         return { built: true, building: building.id, resource: resource.id }
       }
@@ -328,26 +458,40 @@ const assistLoop = async () => {
     return
   }
 
-  // Check if enough time has passed since last action
-  if (!canAssist()) {
-    const timeSince = Math.floor((Date.now() - lastAssistAction) / 1000)
-    logger({ msgLevel: 'debug', msg: `Assist Mode: Cooldown active (${timeSince}s / 5s)` })
-    return
+  // Try research if cooldown has passed (every 3 minutes)
+  if (canResearch()) {
+    logger({ msgLevel: 'debug', msg: 'Assist Mode: Checking for research opportunities...' })
+    try {
+      const researchResult = await tryResearchAtCap()
+      if (!researchResult.researched) {
+        if (researchResult.reason === 'no_affordable_research') {
+          logger({ msgLevel: 'debug', msg: 'Assist Mode: No affordable research for capped resources' })
+        }
+      }
+    } catch (e) {
+      logger({ msgLevel: 'error', msg: `Assist Mode research error: ${e.message}` })
+      console.error(e)
+    }
   }
 
-  // Try to build at cap
-  logger({ msgLevel: 'debug', msg: 'Assist Mode: Checking for resources at cap...' })
-  try {
-    const result = await tryBuildAtCap()
-    if (!result.built) {
-      if (result.reason === 'no_safe_buildings') {
-        logger({ msgLevel: 'debug', msg: 'Assist Mode: Resources at cap but no safe/affordable buildings available' })
+  // Try building if cooldown has passed (every 5 seconds)
+  if (canBuild()) {
+    logger({ msgLevel: 'debug', msg: 'Assist Mode: Checking for building opportunities...' })
+    try {
+      const buildResult = await tryBuildAtCap()
+      if (!buildResult.built) {
+        if (buildResult.reason === 'no_safe_buildings') {
+          logger({ msgLevel: 'debug', msg: 'Assist Mode: Resources at cap but no safe/affordable buildings available' })
+        }
       }
-      // Don't log anything for 'no_resources_at_cap' - already logged in getResourcesAtCap()
+    } catch (e) {
+      logger({ msgLevel: 'error', msg: `Assist Mode build error: ${e.message}` })
+      console.error(e)
     }
-  } catch (e) {
-    logger({ msgLevel: 'error', msg: `Assist Mode error: ${e.message}` })
-    console.error(e)
+  } else {
+    const timeSince = Math.floor((Date.now() - lastBuildAction) / 1000)
+    const cooldown = Math.floor(BUILD_COOLDOWN / 1000)
+    logger({ msgLevel: 'debug', msg: `Assist Mode: Build cooldown active (${timeSince}s / ${cooldown}s)` })
   }
 }
 
