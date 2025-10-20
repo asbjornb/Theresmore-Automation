@@ -1,5 +1,5 @@
 import { buildings } from './data'
-import { CONSTANTS, navigation, selectors, logger, sleep, state, reactUtil, keyGen, resources } from './utils'
+import { CONSTANTS, navigation, selectors, logger, sleep, state, reactUtil, keyGen } from './utils'
 
 // Buildings to never auto-build (strategic choices or negative effects)
 const BLACKLIST = [
@@ -73,7 +73,7 @@ const isUserIdle = () => {
 // Check if enough time has passed since last assist action (prevent spam)
 const canAssist = () => {
   const timeSinceLastAction = Date.now() - lastAssistAction
-  return timeSinceLastAction > 30000 // At least 30 seconds between assists
+  return timeSinceLastAction > 5000 // At least 5 seconds between assists
 }
 
 // Check if a building is blacklisted
@@ -106,14 +106,28 @@ const hasNegativeNonFoodProduction = (building) => {
 
 // Check if building would make food production go negative
 const isFoodSafe = (building) => {
-  // Get current food data from DOM
-  const foodData = resources.get('food')
-  if (!foodData) {
-    return false
-  }
+  // Find food resource row in DOM
+  const resourceRows = document.querySelectorAll('#root div > div > div > table > tbody > tr')
+  let currentFoodProduction = 0
 
-  // Get current food production rate (speed is per second)
-  const currentFoodProduction = foodData.speed || 0
+  for (const row of resourceRows) {
+    try {
+      const firstCell = row.childNodes[0]?.querySelector('span')
+      if (!firstCell) continue
+
+      const key = reactUtil.getNearestKey(firstCell, 6)
+      const resourceId = keyGen.resource.id(key)
+
+      if (resourceId === 'food') {
+        // Parse production rate from third cell (format: "+5.2/s" or "-1.0/s")
+        const speedText = row.childNodes[2]?.textContent.trim() || '0'
+        currentFoodProduction = parseFloat(speedText.replace(/[^0-9.\-]/g, '')) || 0
+        break
+      }
+    } catch (e) {
+      continue
+    }
+  }
 
   // Find food cost in building's gen
   let foodCost = 0
@@ -142,39 +156,52 @@ const calculateBuildingCost = (building) => {
 
 // Get resources that are at or above 90% capacity
 const getResourcesAtCap = () => {
-  const gameData = reactUtil.getGameData()
-
-  if (!gameData || !gameData.ResourcesStore || !gameData.ResourcesStore.resources) {
-    logger({ msgLevel: 'debug', msg: 'Assist Mode: No ResourcesStore.resources found' })
-    return []
-  }
-
-  const resourceMetadata = gameData.ResourcesStore.resources
   const cappedResources = []
   const threshold = 0.9 // 90% capacity
   const allResources = []
 
-  // Use the existing resources.get() utility which parses from DOM
-  resourceMetadata.forEach((resourceMeta) => {
-    if (!resourceMeta || !resourceMeta.id) return
+  // Query all resource rows once (much faster than individual queries)
+  const resourceRows = document.querySelectorAll('#root div > div > div > table > tbody > tr')
 
-    // Get actual current values from DOM using existing utility
-    const resourceData = resources.get(resourceMeta.id)
+  resourceRows.forEach((row) => {
+    try {
+      const cells = row.childNodes
+      if (!cells || cells.length < 3) return
 
-    if (!resourceData || !resourceData.max || resourceData.max <= 0) {
-      return
-    }
+      // Get resource ID from React key
+      const firstCell = cells[0].querySelector('span')
+      if (!firstCell) return
 
-    const percentage = resourceData.current / resourceData.max
-    allResources.push(`${resourceMeta.id}:${Math.round(percentage * 100)}%`)
+      const key = reactUtil.getNearestKey(firstCell, 6)
+      if (!key) return
 
-    if (percentage >= threshold) {
-      cappedResources.push({
-        id: resourceMeta.id,
-        amount: resourceData.current,
-        capacity: resourceData.max,
-        percentage: percentage,
-      })
+      const resourceId = keyGen.resource.id(key)
+      if (!resourceId) return
+
+      // Parse current/max from second cell (format: "1000/1000")
+      const valuesText = cells[1].textContent.trim()
+      const values = valuesText.split('/').map((x) => parseFloat(x.replace(/[^0-9.\-]/g, '')))
+
+      if (values.length !== 2) return
+
+      const current = values[0]
+      const max = values[1]
+
+      if (!max || max <= 0) return
+
+      const percentage = current / max
+      allResources.push(`${resourceId}:${Math.round(percentage * 100)}%`)
+
+      if (percentage >= threshold) {
+        cappedResources.push({
+          id: resourceId,
+          amount: current,
+          capacity: max,
+          percentage: percentage,
+        })
+      }
+    } catch (e) {
+      // Skip malformed rows
     }
   })
 
@@ -222,7 +249,7 @@ const tryBuildAtCap = async () => {
   const cappedResources = getResourcesAtCap()
 
   if (cappedResources.length === 0) {
-    return false
+    return { built: false, reason: 'no_resources_at_cap' }
   }
 
   logger({
@@ -244,10 +271,16 @@ const tryBuildAtCap = async () => {
   const buttons = selectors.getAllButtons(false)
 
   // Try to find a building we can build
-  let built = false
-
   for (const resource of cappedResources) {
     const buildingsForResource = getBuildingsThatConsume(resource.id)
+
+    if (buildingsForResource.length === 0) {
+      logger({
+        msgLevel: 'debug',
+        msg: `Assist Mode: No safe buildings found for ${resource.id}`,
+      })
+      continue
+    }
 
     for (const building of buildingsForResource) {
       const buildingKey = keyGen.building.key(building.id)
@@ -270,17 +303,14 @@ const tryBuildAtCap = async () => {
         button.click()
         assistModeIsClicking = false
 
-        built = true
         lastAssistAction = Date.now()
         await sleep(500)
-        break
+        return { built: true, building: building.id, resource: resource.id }
       }
     }
-
-    if (built) break
   }
 
-  return built
+  return { built: false, reason: 'no_safe_buildings' }
 }
 
 // Main assist mode loop
@@ -301,16 +331,19 @@ const assistLoop = async () => {
   // Check if enough time has passed since last action
   if (!canAssist()) {
     const timeSince = Math.floor((Date.now() - lastAssistAction) / 1000)
-    logger({ msgLevel: 'debug', msg: `Assist Mode: Cooldown active (${timeSince}s / 30s)` })
+    logger({ msgLevel: 'debug', msg: `Assist Mode: Cooldown active (${timeSince}s / 5s)` })
     return
   }
 
   // Try to build at cap
   logger({ msgLevel: 'debug', msg: 'Assist Mode: Checking for resources at cap...' })
   try {
-    const built = await tryBuildAtCap()
-    if (!built) {
-      logger({ msgLevel: 'debug', msg: 'Assist Mode: No resources at cap or no safe buildings to build' })
+    const result = await tryBuildAtCap()
+    if (!result.built) {
+      if (result.reason === 'no_safe_buildings') {
+        logger({ msgLevel: 'debug', msg: 'Assist Mode: Resources at cap but no safe/affordable buildings available' })
+      }
+      // Don't log anything for 'no_resources_at_cap' - already logged in getResourcesAtCap()
     }
   } catch (e) {
     logger({ msgLevel: 'error', msg: `Assist Mode error: ${e.message}` })
