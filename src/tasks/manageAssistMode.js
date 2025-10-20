@@ -38,7 +38,7 @@ const createPanel = () => {
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" class="taAssistBuildings" ${state.options.assistMode?.buildings !== false ? 'checked' : ''}>
             <span>Assist with Buildings</span>
-            <span class="text-xs text-gray-400">(every 5s - builds cheapest safe option)</span>
+            <span class="text-xs text-gray-400">(every 5s - builds affordable safe buildings)</span>
           </label>
 
           <label class="flex items-center gap-2 cursor-pointer">

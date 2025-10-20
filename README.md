@@ -21,7 +21,8 @@ Assist Mode is a gentle helper that only acts when you're idle and resources are
      - Skips dangerous research (fights, resets)
      - Skips mutually exclusive choices
    - **Prayers** (every 2 minutes): Uses faith for prayers when it's capped
-   - **Buildings** (every 5 seconds): Selects the **cheapest** building that uses the capped resource
+   - **Buildings** (every 5 seconds): Builds affordable buildings that use the capped resource
+     - Sorted by base cost (approximate - actual costs scale as you build more)
 4. **Stays Safe**:
    - Won't build statues or shrines (strategic choices are yours)
    - Won't build Pillars of Mana (negative gold production)

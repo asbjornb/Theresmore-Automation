@@ -115,7 +115,9 @@ const isFoodSafe = (building) => {
   return currentFoodProduction + foodCost >= 0
 }
 
-// Calculate total cost of a building (sum of all resource requirements)
+// Calculate base cost of a building (sum of all resource requirements)
+// Note: This is the BASE cost from data, not the actual current cost which scales as you build more.
+// We use this for approximate sorting - it's not perfect but gives a reasonable heuristic.
 const calculateBuildingCost = (building) => {
   if (!building.req) return 0
 
