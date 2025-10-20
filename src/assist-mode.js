@@ -115,20 +115,6 @@ const isFoodSafe = (building) => {
   return currentFoodProduction + foodCost >= 0
 }
 
-// Calculate base cost of a building (sum of all resource requirements)
-// Note: This is the BASE cost from data, not the actual current cost which scales as you build more.
-// We use this for approximate sorting - it's not perfect but gives a reasonable heuristic.
-const calculateBuildingCost = (building) => {
-  if (!building.req) return 0
-
-  return building.req.reduce((sum, req) => {
-    if (req.type === 'resource') {
-      return sum + (req.value || 0)
-    }
-    return sum
-  }, 0)
-}
-
 // Get resources that are at or above 90% capacity
 const getResourcesAtCap = () => {
   const cappedResources = []
@@ -189,34 +175,29 @@ const getResourcesAtCap = () => {
   return cappedResources
 }
 
-// Find buildings that consume a specific resource (with safety checks and sorted by cost)
+// Find buildings that consume a specific resource (with safety checks)
 const getBuildingsThatConsume = (resourceId) => {
-  return buildings
-    .filter((building) => {
-      if (!building.req) return false
+  return buildings.filter((building) => {
+    if (!building.req) return false
 
-      // Check if building is blacklisted
-      if (isBlacklisted(building.id)) {
-        return false
-      }
+    // Check if building is blacklisted
+    if (isBlacklisted(building.id)) {
+      return false
+    }
 
-      // Check for negative non-food production (like Pillars with -gold)
-      if (hasNegativeNonFoodProduction(building)) {
-        return false
-      }
+    // Check for negative non-food production (like Pillars with -gold)
+    if (hasNegativeNonFoodProduction(building)) {
+      return false
+    }
 
-      // Check if building would make food production negative
-      if (!isFoodSafe(building)) {
-        return false
-      }
+    // Check if building would make food production negative
+    if (!isFoodSafe(building)) {
+      return false
+    }
 
-      // Check if building requires this resource
-      return building.req.some((req) => req.type === 'resource' && req.id === resourceId)
-    })
-    .sort((a, b) => {
-      // Sort by total cost (cheapest first)
-      return calculateBuildingCost(a) - calculateBuildingCost(b)
-    })
+    // Check if building requires this resource
+    return building.req.some((req) => req.type === 'resource' && req.id === resourceId)
+  })
 }
 
 // Find research that consumes capped resources (safe research only)
