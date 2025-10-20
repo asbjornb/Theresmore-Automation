@@ -439,10 +439,9 @@ const tryBuildAtCap = async () => {
       })
 
       if (button) {
-        const cost = calculateBuildingCost(building)
         logger({
           msgLevel: 'log',
-          msg: `Assist Mode: Building ${building.id} (cost: ${cost}) to spend ${resource.id} (${Math.round(resource.percentage * 100)}% full)`,
+          msg: `Assist Mode: Building ${building.id} to spend ${resource.id} (${Math.round(resource.percentage * 100)}% full)`,
         })
 
         // Click using actions wrapper to prevent resetting idle timer
