@@ -63,7 +63,7 @@ const createPanel = () => {
       <hr class="my-6 border-gray-700">
 
       <div class="mb-4">
-        <button type="button" class="btn btn-gray taAdvancedSettings">Advanced Automation Settings</button>
+        <button type="button" class="btn btn-blue taAdvancedSettings">Advanced Automation Settings</button>
         <p class="text-xs text-yellow-400 mt-2">
           ⚠️ Advanced automation is <strong>not compatible</strong> with Assist Mode. Use one or the other, not both.
         </p>
