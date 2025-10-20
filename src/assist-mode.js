@@ -294,7 +294,7 @@ const tryResearchAtCap = async () => {
         const usedResource = research.req.find((req) => req.type === 'resource' && cappedResourceIds.includes(req.id))
 
         logger({
-          msgLevel: 'info',
+          msgLevel: 'log',
           msg: `Assist Mode: Researching ${research.id} to spend ${usedResource.id}`,
         })
 
@@ -368,7 +368,7 @@ const tryPrayerAtCap = async () => {
         const usedResource = prayer.req.find((req) => req.type === 'resource' && cappedResourceIds.includes(req.id))
 
         logger({
-          msgLevel: 'info',
+          msgLevel: 'log',
           msg: `Assist Mode: Praying ${prayer.id} to spend ${usedResource.id}`,
         })
 
@@ -441,7 +441,7 @@ const tryBuildAtCap = async () => {
       if (button) {
         const cost = calculateBuildingCost(building)
         logger({
-          msgLevel: 'info',
+          msgLevel: 'log',
           msg: `Assist Mode: Building ${building.id} (cost: ${cost}) to spend ${resource.id} (${Math.round(resource.percentage * 100)}% full)`,
         })
 
