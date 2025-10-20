@@ -1,4 +1,4 @@
-import { buildings, tech } from './data'
+import { buildings, tech, spells } from './data'
 import { CONSTANTS, navigation, selectors, logger, sleep, state, reactUtil, keyGen } from './utils'
 import actions from './assist-mode-actions'
 
@@ -32,12 +32,10 @@ const UNSAFE_RESEARCH = [
 
 // Cooldown timings and tracking
 let lastBuildAction = 0
-let lastResearchAction = 0
-let lastPrayerAction = 0
+let lastMagicCheckAction = 0 // Shared timer for research + prayers
 
 const BUILD_COOLDOWN = 5000 // 5 seconds between builds
-const RESEARCH_COOLDOWN = 120000 // 2 minutes between research checks
-const PRAYER_COOLDOWN = 120000 // 2 minutes between prayer checks
+const MAGIC_CHECK_COOLDOWN = 120000 // 2 minutes between research/prayer checks
 
 // Check if enough time has passed since last build action (prevent spam)
 const canBuild = () => {
@@ -45,10 +43,10 @@ const canBuild = () => {
   return timeSinceLastAction > BUILD_COOLDOWN
 }
 
-// Check if enough time has passed since last research action
-const canResearch = () => {
-  const timeSinceLastAction = Date.now() - lastResearchAction
-  return timeSinceLastAction > RESEARCH_COOLDOWN
+// Check if enough time has passed since last magic check (research + prayers)
+const canCheckMagic = () => {
+  const timeSinceLastAction = Date.now() - lastMagicCheckAction
+  return timeSinceLastAction > MAGIC_CHECK_COOLDOWN
 }
 
 // Check if a building is blacklisted
@@ -239,6 +237,17 @@ const getResearchThatConsumes = (resourceIds) => {
   })
 }
 
+// Find prayers that consume capped resources (all prayers are safe)
+const getPrayersThatConsume = (resourceIds) => {
+  return spells.filter((spell) => {
+    if (spell.type !== 'prayer') return false
+    if (!spell.req) return false
+
+    // Check if prayer requires any of the capped resources
+    return spell.req.some((req) => req.type === 'resource' && resourceIds.includes(req.id))
+  })
+}
+
 // Try to research something to spend capped resources
 const tryResearchAtCap = async () => {
   const cappedResources = getResourcesAtCap()
@@ -290,7 +299,7 @@ const tryResearchAtCap = async () => {
         })
 
         button.click()
-        lastResearchAction = Date.now()
+        lastMagicCheckAction = Date.now()
         await sleep(500)
 
         // Navigate back to Build page
@@ -306,6 +315,81 @@ const tryResearchAtCap = async () => {
     await sleep(500)
 
     return { researched: false, reason: 'no_affordable_research' }
+  })
+}
+
+// Try to pray to spend capped resources
+const tryPrayerAtCap = async () => {
+  const cappedResources = getResourcesAtCap()
+
+  if (cappedResources.length === 0) {
+    return { prayed: false, reason: 'no_resources_at_cap' }
+  }
+
+  const cappedResourceIds = cappedResources.map((r) => r.id)
+
+  logger({
+    msgLevel: 'debug',
+    msg: `Assist Mode: Checking prayers for capped resources: ${cappedResourceIds.join(', ')}`,
+  })
+
+  // Execute all navigation/clicking as automated actions
+  return actions.executeAction(async () => {
+    // Navigate to Magic page if not already there
+    const onMagicPage = navigation.checkPage(CONSTANTS.PAGES.MAGIC)
+
+    if (!onMagicPage) {
+      logger({ msgLevel: 'debug', msg: 'Assist Mode: Navigating to Magic page' })
+      await navigation.switchPage(CONSTANTS.PAGES.MAGIC)
+      await sleep(1000)
+    }
+
+    // Navigate to Prayers subpage
+    logger({ msgLevel: 'debug', msg: 'Assist Mode: Navigating to Prayers subpage' })
+    await navigation.switchSubPage(CONSTANTS.SUBPAGES.PRAYERS, CONSTANTS.PAGES.MAGIC)
+    await sleep(1000)
+
+    // Get all prayer buttons
+    const buttons = selectors.getAllButtons(true, ':not(.btn-progress)')
+
+    // Find prayers that use capped resources
+    const prayerOptions = getPrayersThatConsume(cappedResourceIds)
+
+    for (const prayer of prayerOptions) {
+      const prayerKey = keyGen.magic.key(prayer.id)
+
+      // Find the button for this prayer
+      const button = buttons.find((btn) => {
+        const id = reactUtil.getNearestKey(btn, 6)
+        return id === prayerKey && !btn.classList.toString().includes('btn-off')
+      })
+
+      if (button) {
+        // Find which capped resource this prayer uses
+        const usedResource = prayer.req.find((req) => req.type === 'resource' && cappedResourceIds.includes(req.id))
+
+        logger({
+          msgLevel: 'info',
+          msg: `Assist Mode: Praying ${prayer.id} to spend ${usedResource.id}`,
+        })
+
+        button.click()
+        lastMagicCheckAction = Date.now()
+        await sleep(500)
+
+        // Navigate back to Build page
+        await navigation.switchPage(CONSTANTS.PAGES.BUILD)
+        await sleep(500)
+
+        return { prayed: true, prayer: prayer.id, resource: usedResource.id }
+      }
+    }
+
+    // Navigate back to Build page
+    await navigation.switchPage(CONSTANTS.PAGES.BUILD)
+    await sleep(500)
+
+    return { prayed: false, reason: 'no_affordable_prayers' }
   })
 }
 
@@ -392,18 +476,35 @@ const assistLoop = async () => {
     return
   }
 
-  // Try research if cooldown has passed (every 3 minutes)
-  if (canResearch()) {
-    logger({ msgLevel: 'debug', msg: 'Assist Mode: Checking for research opportunities...' })
+  // Try research and prayers if cooldown has passed (every 2 minutes, shared timer)
+  if (canCheckMagic()) {
+    logger({ msgLevel: 'debug', msg: 'Assist Mode: Checking for research and prayer opportunities...' })
+
+    // Try research first
     try {
       const researchResult = await tryResearchAtCap()
-      if (!researchResult.researched) {
-        if (researchResult.reason === 'no_affordable_research') {
-          logger({ msgLevel: 'debug', msg: 'Assist Mode: No affordable research for capped resources' })
-        }
+      if (researchResult.researched) {
+        return // Successfully researched, done for this cycle
+      }
+      if (researchResult.reason === 'no_affordable_research') {
+        logger({ msgLevel: 'debug', msg: 'Assist Mode: No affordable research for capped resources' })
       }
     } catch (e) {
       logger({ msgLevel: 'error', msg: `Assist Mode research error: ${e.message}` })
+      console.error(e)
+    }
+
+    // If research didn't happen, try prayers
+    try {
+      const prayerResult = await tryPrayerAtCap()
+      if (prayerResult.prayed) {
+        return // Successfully prayed, done for this cycle
+      }
+      if (prayerResult.reason === 'no_affordable_prayers') {
+        logger({ msgLevel: 'debug', msg: 'Assist Mode: No affordable prayers for capped resources' })
+      }
+    } catch (e) {
+      logger({ msgLevel: 'error', msg: `Assist Mode prayer error: ${e.message}` })
       console.error(e)
     }
   }

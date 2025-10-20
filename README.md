@@ -12,13 +12,19 @@ Assist Mode is a gentle helper that only acts when you're idle and resources are
 
 1. **Waits for Idle**: Only activates after 60 seconds of no player activity
 2. **Monitors Resources**: Checks if any resource reaches 90% capacity
-3. **Builds Smart**: Selects the **cheapest** building that uses the capped resource
+3. **Spends Resources Wisely**:
+   - **Research** (every 2 minutes): Completes safe research using capped resources
+     - Skips dangerous research (fights, resets)
+     - Skips mutually exclusive choices
+   - **Prayers** (every 2 minutes): Uses faith for prayers when it's capped
+   - **Buildings** (every 5 seconds): Selects the **cheapest** building that uses the capped resource
 4. **Stays Safe**:
    - Won't build statues or shrines (strategic choices are yours)
    - Won't build Pillars of Mana (negative gold production)
    - Won't build anything that would make food production negative
    - Won't build with Lucky Stones (too valuable)
-5. **Minimal Interference**: Builds one building, then waits 30 seconds before checking again
+   - Won't research anything that triggers fights or resets the game
+5. **Minimal Interference**: Takes one action at a time with appropriate cooldowns
 
 ### Usage
 
