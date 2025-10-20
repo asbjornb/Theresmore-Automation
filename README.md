@@ -1,6 +1,10 @@
-# Theresmore Automation
+# Theresmore Automation - Assist Mode Fork
 
 Quality of life helper for the [Theresmore](https://www.theresmoregame.com/play/) game.
+
+**Note:** This is a fork of the excellent [Theresmore-Automation](https://github.com/Theresmore-Automation/Theresmore-Automation) project, focused on providing
+a simpler "Assist Mode" experience. All the hard work and foundations come from the original project - this fork just adds a gentle assistant mode on top of
+that amazing codebase.
 
 ## ✨ Assist Mode (Recommended)
 
@@ -42,7 +46,7 @@ Assist Mode is a gentle helper that only acts when you're idle and resources are
 Install an extension that supports Userscripts, like [Violentmonkey](https://violentmonkey.github.io/) or [Tampermonkey](https://www.tampermonkey.net/).
 
 Then simply open
-[https://github.com/Theresmore-Automation/Theresmore-Automation/releases/latest/download/bundle.user.js](https://github.com/Theresmore-Automation/Theresmore-Automation/releases/latest/download/bundle.user.js)
+[https://github.com/asbjornb/Theresmore-Automation/releases/latest/download/bundle.user.js](https://github.com/asbjornb/Theresmore-Automation/releases/latest/download/bundle.user.js)
 to have the script installed.
 
 ## Development
