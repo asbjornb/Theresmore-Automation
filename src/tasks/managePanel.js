@@ -22,8 +22,12 @@ const createPanel = (switchScriptState) => {
     <div class="mb-2">
       <label class="flex items-center gap-2 cursor-pointer">
         <input type="checkbox" class="taAssistMode" ${state.options.assistMode?.enabled ? 'checked' : ''}>
-        <span class="text-sm">Assist Mode (builds at 90% cap when idle 60s)</span>
+        <span class="text-sm">Assist Mode</span>
       </label>
+      <div class="text-xs ml-5 mt-1 text-gray-400">
+        Passive helper: builds cheapest option when resources hit 90% cap (after 60s idle).<br/>
+        Safe: Won't build statues/shrines/pillars or make food negative. You keep control.
+      </div>
     </div>
     <div class="mb-2">
       Legacies: <span class="legacyCount">0</span>; LP: <span class="lpCount">0</span>
@@ -38,9 +42,11 @@ const createPanel = (switchScriptState) => {
   // Add Assist Mode toggle handler
   controlPanel.querySelector('.taAssistMode').addEventListener('change', (e) => {
     if (!state.options.assistMode) {
-      state.options.assistMode = { idleSeconds: 60 }
+      state.options.assistMode = { enabled: false, idleSeconds: 60 }
     }
     state.options.assistMode.enabled = e.target.checked
+    localStorage.set('options', state.options)
+    console.log('[TA] Assist Mode', e.target.checked ? 'enabled' : 'disabled')
   })
 }
 

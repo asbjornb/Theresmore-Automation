@@ -40,8 +40,14 @@ function getBtnIndex(el, level = 0) {
 }
 
 let gameDataCache
+let gameDataCacheTime = 0
+const CACHE_TTL = 1000 // Cache for 1 second to balance performance and freshness
+
 function getGameData() {
-  if (gameDataCache) {
+  const now = Date.now()
+
+  // Return cached data if it's fresh (less than 1 second old)
+  if (gameDataCache && now - gameDataCacheTime < CACHE_TTL) {
     return gameDataCache
   }
 
@@ -50,6 +56,7 @@ function getGameData() {
   if (key) {
     const container = root[key]
     gameDataCache = container.stateNode.current.child.memoizedProps.MainStore
+    gameDataCacheTime = now
     return gameDataCache
   } else {
     return undefined

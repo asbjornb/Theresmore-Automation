@@ -1,5 +1,5 @@
 import { buildings } from './data'
-import { CONSTANTS, navigation, selectors, logger, sleep, state, reactUtil, keyGen } from './utils'
+import { CONSTANTS, navigation, selectors, logger, sleep, state, reactUtil, keyGen, resources } from './utils'
 
 // Buildings to never auto-build (strategic choices or negative effects)
 const BLACKLIST = [
@@ -17,32 +17,49 @@ const BLACKLIST = [
 // Track user activity
 let lastUserActivity = Date.now()
 let lastAssistAction = 0
+let lastActiveTab = null
+let assistModeIsClicking = false // Flag to ignore assist mode's own clicks
 
 // Monitor user interactions
 const initActivityMonitor = () => {
   if (typeof window !== 'undefined') {
+    // Reset idle timer on user clicks (but not assist mode's clicks)
     document.addEventListener('click', () => {
+      if (assistModeIsClicking) {
+        return // Ignore assist mode's own clicks
+      }
       lastUserActivity = Date.now()
+      logger({ msgLevel: 'debug', msg: 'Assist Mode: Activity detected (click)' })
     })
 
+    // Reset idle timer on keypresses
     document.addEventListener('keypress', () => {
       lastUserActivity = Date.now()
+      logger({ msgLevel: 'debug', msg: 'Assist Mode: Activity detected (keypress)' })
     })
 
-    // Also watch for tab changes as user activity
-    const observer = new MutationObserver(() => {
-      const activeTab = document.querySelector('[role="tab"][aria-selected="true"]')
-      if (activeTab) {
-        lastUserActivity = Date.now()
-      }
-    })
+    // Watch for tab changes as user activity (but only ACTUAL changes)
+    const tabContainer = document.querySelector('#maintabs-container [role="tablist"]')
+    if (tabContainer) {
+      const observer = new MutationObserver(() => {
+        const activeTab = document.querySelector('[role="tab"][aria-selected="true"]')
+        if (activeTab) {
+          const currentTab = activeTab.textContent
+          // Only reset if tab actually changed
+          if (lastActiveTab && lastActiveTab !== currentTab) {
+            lastUserActivity = Date.now()
+            logger({ msgLevel: 'debug', msg: `Assist Mode: Activity detected (tab change to ${currentTab})` })
+          }
+          lastActiveTab = currentTab
+        }
+      })
 
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['aria-selected'],
-    })
+      observer.observe(tabContainer, {
+        attributes: true,
+        attributeFilter: ['aria-selected'],
+        subtree: true,
+      })
+    }
   }
 }
 
@@ -78,47 +95,126 @@ const isBlacklisted = (buildingId) => {
   return false
 }
 
+// Check if building has negative non-food production
+const hasNegativeNonFoodProduction = (building) => {
+  if (!building.gen) return false
+
+  return building.gen.some((gen) => {
+    return gen.type === 'resource' && gen.id !== 'food' && gen.value < 0
+  })
+}
+
+// Check if building would make food production go negative
+const isFoodSafe = (building) => {
+  // Get current food data from DOM
+  const foodData = resources.get('food')
+  if (!foodData) {
+    return false
+  }
+
+  // Get current food production rate (speed is per second)
+  const currentFoodProduction = foodData.speed || 0
+
+  // Find food cost in building's gen
+  let foodCost = 0
+  if (building.gen) {
+    const foodGen = building.gen.find((gen) => gen.type === 'resource' && gen.id === 'food')
+    if (foodGen) {
+      foodCost = foodGen.value
+    }
+  }
+
+  // If building would make total food production negative, it's not safe
+  return currentFoodProduction + foodCost >= 0
+}
+
+// Calculate total cost of a building (sum of all resource requirements)
+const calculateBuildingCost = (building) => {
+  if (!building.req) return 0
+
+  return building.req.reduce((sum, req) => {
+    if (req.type === 'resource') {
+      return sum + (req.value || 0)
+    }
+    return sum
+  }, 0)
+}
+
 // Get resources that are at or above 90% capacity
 const getResourcesAtCap = () => {
   const gameData = reactUtil.getGameData()
-  if (!gameData || !gameData.resources) {
+
+  if (!gameData || !gameData.ResourcesStore || !gameData.ResourcesStore.resources) {
+    logger({ msgLevel: 'debug', msg: 'Assist Mode: No ResourcesStore.resources found' })
     return []
   }
 
+  const resourceMetadata = gameData.ResourcesStore.resources
   const cappedResources = []
   const threshold = 0.9 // 90% capacity
+  const allResources = []
 
-  Object.keys(gameData.resources).forEach((resourceId) => {
-    const resource = gameData.resources[resourceId]
-    if (resource && resource.capacity > 0) {
-      const percentage = resource.amount / resource.capacity
-      if (percentage >= threshold) {
-        cappedResources.push({
-          id: resourceId,
-          amount: resource.amount,
-          capacity: resource.capacity,
-          percentage: percentage,
-        })
-      }
+  // Use the existing resources.get() utility which parses from DOM
+  resourceMetadata.forEach((resourceMeta) => {
+    if (!resourceMeta || !resourceMeta.id) return
+
+    // Get actual current values from DOM using existing utility
+    const resourceData = resources.get(resourceMeta.id)
+
+    if (!resourceData || !resourceData.max || resourceData.max <= 0) {
+      return
     }
+
+    const percentage = resourceData.current / resourceData.max
+    allResources.push(`${resourceMeta.id}:${Math.round(percentage * 100)}%`)
+
+    if (percentage >= threshold) {
+      cappedResources.push({
+        id: resourceMeta.id,
+        amount: resourceData.current,
+        capacity: resourceData.max,
+        percentage: percentage,
+      })
+    }
+  })
+
+  logger({ msgLevel: 'debug', msg: `Assist Mode: All resources: ${allResources.join(', ')}` })
+  logger({
+    msgLevel: 'debug',
+    msg: `Assist Mode: Resources at cap (≥90%): ${cappedResources.map((r) => r.id).join(', ') || 'none'}`,
   })
 
   return cappedResources
 }
 
-// Find buildings that consume a specific resource
+// Find buildings that consume a specific resource (with safety checks and sorted by cost)
 const getBuildingsThatConsume = (resourceId) => {
-  return buildings.filter((building) => {
-    if (!building.req) return false
+  return buildings
+    .filter((building) => {
+      if (!building.req) return false
 
-    // Check if building is blacklisted
-    if (isBlacklisted(building.id)) {
-      return false
-    }
+      // Check if building is blacklisted
+      if (isBlacklisted(building.id)) {
+        return false
+      }
 
-    // Check if building requires this resource
-    return building.req.some((req) => req.type === 'resource' && req.id === resourceId)
-  })
+      // Check for negative non-food production (like Pillars with -gold)
+      if (hasNegativeNonFoodProduction(building)) {
+        return false
+      }
+
+      // Check if building would make food production negative
+      if (!isFoodSafe(building)) {
+        return false
+      }
+
+      // Check if building requires this resource
+      return building.req.some((req) => req.type === 'resource' && req.id === resourceId)
+    })
+    .sort((a, b) => {
+      // Sort by total cost (cheapest first)
+      return calculateBuildingCost(a) - calculateBuildingCost(b)
+    })
 }
 
 // Try to build something to spend capped resources
@@ -163,12 +259,17 @@ const tryBuildAtCap = async () => {
       })
 
       if (button) {
+        const cost = calculateBuildingCost(building)
         logger({
           msgLevel: 'info',
-          msg: `Assist Mode: Building ${building.id} to spend ${resource.id}`,
+          msg: `Assist Mode: Building ${building.id} (cost: ${cost}) to spend ${resource.id} (${Math.round(resource.percentage * 100)}% full)`,
         })
 
+        // Set flag before clicking to prevent resetting idle timer
+        assistModeIsClicking = true
         button.click()
+        assistModeIsClicking = false
+
         built = true
         lastAssistAction = Date.now()
         await sleep(500)
@@ -186,24 +287,34 @@ const tryBuildAtCap = async () => {
 const assistLoop = async () => {
   // Only run if assist mode is enabled
   if (!state.options.assistMode?.enabled) {
+    logger({ msgLevel: 'debug', msg: 'Assist Mode: Not enabled' })
     return
   }
 
   // Check if user is idle
   if (!isUserIdle()) {
+    const idleTime = Math.floor((Date.now() - lastUserActivity) / 1000)
+    logger({ msgLevel: 'debug', msg: `Assist Mode: User not idle yet (${idleTime}s / 60s)` })
     return
   }
 
   // Check if enough time has passed since last action
   if (!canAssist()) {
+    const timeSince = Math.floor((Date.now() - lastAssistAction) / 1000)
+    logger({ msgLevel: 'debug', msg: `Assist Mode: Cooldown active (${timeSince}s / 30s)` })
     return
   }
 
   // Try to build at cap
+  logger({ msgLevel: 'debug', msg: 'Assist Mode: Checking for resources at cap...' })
   try {
-    await tryBuildAtCap()
+    const built = await tryBuildAtCap()
+    if (!built) {
+      logger({ msgLevel: 'debug', msg: 'Assist Mode: No resources at cap or no safe buildings to build' })
+    }
   } catch (e) {
     logger({ msgLevel: 'error', msg: `Assist Mode error: ${e.message}` })
+    console.error(e)
   }
 }
 
@@ -212,7 +323,7 @@ const init = () => {
   // Set default options if not present
   if (!state.options.assistMode) {
     state.options.assistMode = {
-      enabled: true,
+      enabled: false,
       idleSeconds: 60,
     }
   }
@@ -222,7 +333,10 @@ const init = () => {
   // Run assist loop every 10 seconds
   setInterval(assistLoop, 10000)
 
-  logger({ msgLevel: 'log', msg: 'Assist Mode initialized' })
+  logger({
+    msgLevel: 'log',
+    msg: `Assist Mode initialized (${state.options.assistMode.enabled ? 'enabled' : 'disabled'})`,
+  })
 }
 
 export default { init, isUserIdle, getResourcesAtCap }
