@@ -477,40 +477,45 @@ const assistLoop = async () => {
   }
 
   // Try research and prayers if cooldown has passed (every 2 minutes, shared timer)
-  if (canCheckMagic()) {
+  // Only if at least one of research or prayers is enabled
+  if (canCheckMagic() && (state.options.assistMode?.research !== false || state.options.assistMode?.prayers !== false)) {
     logger({ msgLevel: 'debug', msg: 'Assist Mode: Checking for research and prayer opportunities...' })
 
-    // Try research first
-    try {
-      const researchResult = await tryResearchAtCap()
-      if (researchResult.researched) {
-        return // Successfully researched, done for this cycle
+    // Try research first (if enabled)
+    if (state.options.assistMode?.research !== false) {
+      try {
+        const researchResult = await tryResearchAtCap()
+        if (researchResult.researched) {
+          return // Successfully researched, done for this cycle
+        }
+        if (researchResult.reason === 'no_affordable_research') {
+          logger({ msgLevel: 'debug', msg: 'Assist Mode: No affordable research for capped resources' })
+        }
+      } catch (e) {
+        logger({ msgLevel: 'error', msg: `Assist Mode research error: ${e.message}` })
+        console.error(e)
       }
-      if (researchResult.reason === 'no_affordable_research') {
-        logger({ msgLevel: 'debug', msg: 'Assist Mode: No affordable research for capped resources' })
-      }
-    } catch (e) {
-      logger({ msgLevel: 'error', msg: `Assist Mode research error: ${e.message}` })
-      console.error(e)
     }
 
-    // If research didn't happen, try prayers
-    try {
-      const prayerResult = await tryPrayerAtCap()
-      if (prayerResult.prayed) {
-        return // Successfully prayed, done for this cycle
+    // If research didn't happen, try prayers (if enabled)
+    if (state.options.assistMode?.prayers !== false) {
+      try {
+        const prayerResult = await tryPrayerAtCap()
+        if (prayerResult.prayed) {
+          return // Successfully prayed, done for this cycle
+        }
+        if (prayerResult.reason === 'no_affordable_prayers') {
+          logger({ msgLevel: 'debug', msg: 'Assist Mode: No affordable prayers for capped resources' })
+        }
+      } catch (e) {
+        logger({ msgLevel: 'error', msg: `Assist Mode prayer error: ${e.message}` })
+        console.error(e)
       }
-      if (prayerResult.reason === 'no_affordable_prayers') {
-        logger({ msgLevel: 'debug', msg: 'Assist Mode: No affordable prayers for capped resources' })
-      }
-    } catch (e) {
-      logger({ msgLevel: 'error', msg: `Assist Mode prayer error: ${e.message}` })
-      console.error(e)
     }
   }
 
-  // Try building if cooldown has passed (every 5 seconds)
-  if (canBuild()) {
+  // Try building if cooldown has passed (every 5 seconds) and buildings are enabled
+  if (canBuild() && state.options.assistMode?.buildings !== false) {
     logger({ msgLevel: 'debug', msg: 'Assist Mode: Checking for building opportunities...' })
     try {
       const buildResult = await tryBuildAtCap()
@@ -523,7 +528,7 @@ const assistLoop = async () => {
       logger({ msgLevel: 'error', msg: `Assist Mode build error: ${e.message}` })
       console.error(e)
     }
-  } else {
+  } else if (state.options.assistMode?.buildings !== false) {
     const timeSince = Math.floor((Date.now() - lastBuildAction) / 1000)
     const cooldown = Math.floor(BUILD_COOLDOWN / 1000)
     logger({ msgLevel: 'debug', msg: `Assist Mode: Build cooldown active (${timeSince}s / ${cooldown}s)` })

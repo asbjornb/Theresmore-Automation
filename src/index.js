@@ -103,6 +103,7 @@ const init = async () => {
 
   tasks.manageStyles.appendStyles()
   tasks.managePanel.createPanel(switchScriptState)
+  tasks.manageAssistMode.createPanel()
   tasks.manageOptions.createPanel(start)
   tasks.managePanel.updatePanel()
 

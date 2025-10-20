@@ -46,6 +46,34 @@ const appendStyles = () => {
     overflow-x: none;
   }
 
+  .taAssistPanel {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 9999999999;
+    padding: 20px;
+    height: 100vh;
+    width: 100vw;
+    backdrop-filter: blur(10px);
+  }
+
+  .taAssistPanelVisible {
+    display: block;
+  }
+
+  .taAssistPanelInner {
+    position: relative;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+    border: 1px black solid;
+    background: rgb(30, 30, 30);
+    border-radius: 8px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
   .toastifyDisabled {
     display: none!important;
   }

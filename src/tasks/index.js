@@ -8,6 +8,7 @@ import autoNGPlus from './autoNGPlus'
 import autoDifficulty from './autoDifficulty'
 import autoPath from './autoPath'
 import managePanel from './managePanel'
+import manageAssistMode from './manageAssistMode'
 import manageOptions from './manageOptions'
 import manageStyles from './manageStyles'
 import cosmetics from './cosmetics'
@@ -25,6 +26,7 @@ export default {
   autoDifficulty,
   autoPath,
   managePanel,
+  manageAssistMode,
   manageOptions,
   manageStyles,
   cosmetics,
