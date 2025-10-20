@@ -28,8 +28,11 @@ const createPanel = () => {
       <div class="mb-4">
         <label class="flex items-center gap-2 cursor-pointer mb-3">
           <input type="checkbox" class="taEnableAll" ${state.options.assistMode?.enabled ? 'checked' : ''}>
-          <span class="font-bold">Enable All Assist Features</span>
+          <span class="font-bold">Enable Assist Mode</span>
         </label>
+        <p class="text-xs text-gray-400 mb-3 ml-6">
+          This is the master switch. When enabled, assist mode will run the features checked below.
+        </p>
 
         <div class="ml-6 space-y-2">
           <label class="flex items-center gap-2 cursor-pointer">
@@ -101,7 +104,7 @@ const createPanel = () => {
     state.options.assistMode.prayers = enabled
 
     localStorage.set('options', state.options)
-    console.log('[TA] Assist Mode:', enabled ? 'enabled (all features)' : 'disabled')
+    console.log('[TA] Assist Mode:', enabled ? 'enabled' : 'disabled')
   })
 
   // Individual feature checkboxes
