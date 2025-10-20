@@ -1,5 +1,6 @@
 import { buildings, tech } from './data'
 import { CONSTANTS, navigation, selectors, logger, sleep, state, reactUtil, keyGen } from './utils'
+import actions from './assist-mode-actions'
 
 // Buildings to never auto-build (strategic choices or negative effects)
 const BLACKLIST = [
@@ -29,75 +30,14 @@ const UNSAFE_RESEARCH = [
   'launch_annhilator', // Resets the game
 ]
 
-// Track user activity
-let lastUserActivity = Date.now()
+// Cooldown timings and tracking
 let lastBuildAction = 0
 let lastResearchAction = 0
 let lastPrayerAction = 0
-let lastActiveTab = null
-let assistModeIsActing = false // Flag to ignore all assist mode actions (clicks, navigation, etc.)
 
-// Cooldown timings
 const BUILD_COOLDOWN = 5000 // 5 seconds between builds
 const RESEARCH_COOLDOWN = 120000 // 2 minutes between research checks
 const PRAYER_COOLDOWN = 120000 // 2 minutes between prayer checks
-
-// Monitor user interactions
-const initActivityMonitor = () => {
-  if (typeof window !== 'undefined') {
-    // Reset idle timer on user clicks (but not assist mode's actions)
-    document.addEventListener('click', () => {
-      if (assistModeIsActing) {
-        return // Ignore assist mode's own clicks
-      }
-      lastUserActivity = Date.now()
-      logger({ msgLevel: 'debug', msg: 'Assist Mode: Activity detected (click)' })
-    })
-
-    // Reset idle timer on keypresses
-    document.addEventListener('keypress', () => {
-      if (assistModeIsActing) {
-        return // Ignore assist mode's own keypresses (if any)
-      }
-      lastUserActivity = Date.now()
-      logger({ msgLevel: 'debug', msg: 'Assist Mode: Activity detected (keypress)' })
-    })
-
-    // Watch for tab changes as user activity (but only ACTUAL user changes, not assist mode)
-    const tabContainer = document.querySelector('#maintabs-container [role="tablist"]')
-    if (tabContainer) {
-      const observer = new MutationObserver(() => {
-        if (assistModeIsActing) {
-          return // Ignore assist mode's navigation
-        }
-
-        const activeTab = document.querySelector('[role="tab"][aria-selected="true"]')
-        if (activeTab) {
-          const currentTab = activeTab.textContent
-          // Only reset if tab actually changed
-          if (lastActiveTab && lastActiveTab !== currentTab) {
-            lastUserActivity = Date.now()
-            logger({ msgLevel: 'debug', msg: `Assist Mode: Activity detected (tab change to ${currentTab})` })
-          }
-          lastActiveTab = currentTab
-        }
-      })
-
-      observer.observe(tabContainer, {
-        attributes: true,
-        attributeFilter: ['aria-selected'],
-        subtree: true,
-      })
-    }
-  }
-}
-
-// Check if user is idle (60 seconds with no interaction)
-const isUserIdle = () => {
-  const idleTime = Date.now() - lastUserActivity
-  const idleThreshold = state.options.assistMode?.idleSeconds ? state.options.assistMode.idleSeconds * 1000 : 60000
-  return idleTime > idleThreshold
-}
 
 // Check if enough time has passed since last build action (prevent spam)
 const canBuild = () => {
@@ -314,10 +254,8 @@ const tryResearchAtCap = async () => {
     msg: `Assist Mode: Checking research for capped resources: ${cappedResourceIds.join(', ')}`,
   })
 
-  // Set flag to ignore all automated actions
-  assistModeIsActing = true
-
-  try {
+  // Execute all navigation/clicking as automated actions
+  return actions.executeAction(async () => {
     // Navigate to Research page if not already there
     const onResearchPage = navigation.checkPage(CONSTANTS.PAGES.RESEARCH)
 
@@ -368,10 +306,7 @@ const tryResearchAtCap = async () => {
     await sleep(500)
 
     return { researched: false, reason: 'no_affordable_research' }
-  } finally {
-    // Always clear the flag
-    assistModeIsActing = false
-  }
+  })
 }
 
 // Try to build something to spend capped resources
@@ -428,10 +363,8 @@ const tryBuildAtCap = async () => {
           msg: `Assist Mode: Building ${building.id} (cost: ${cost}) to spend ${resource.id} (${Math.round(resource.percentage * 100)}% full)`,
         })
 
-        // Set flag before clicking to prevent resetting idle timer
-        assistModeIsActing = true
-        button.click()
-        assistModeIsActing = false
+        // Click using actions wrapper to prevent resetting idle timer
+        await actions.click(button)
 
         lastBuildAction = Date.now()
         await sleep(500)
@@ -447,14 +380,15 @@ const tryBuildAtCap = async () => {
 const assistLoop = async () => {
   // Only run if assist mode is enabled
   if (!state.options.assistMode?.enabled) {
-    logger({ msgLevel: 'debug', msg: 'Assist Mode: Not enabled' })
     return
   }
 
   // Check if user is idle
-  if (!isUserIdle()) {
-    const idleTime = Math.floor((Date.now() - lastUserActivity) / 1000)
-    logger({ msgLevel: 'debug', msg: `Assist Mode: User not idle yet (${idleTime}s / 60s)` })
+  const idleThreshold = state.options.assistMode?.idleSeconds ? state.options.assistMode.idleSeconds * 1000 : 60000
+  if (!actions.isUserIdle(idleThreshold)) {
+    const idleTime = actions.getIdleTimeSeconds()
+    const thresholdSec = Math.floor(idleThreshold / 1000)
+    logger({ msgLevel: 'debug', msg: `Assist Mode: User not idle yet (${idleTime}s / ${thresholdSec}s)` })
     return
   }
 
@@ -505,7 +439,7 @@ const init = () => {
     }
   }
 
-  initActivityMonitor()
+  actions.initActivityMonitor()
 
   // Run assist loop every 10 seconds
   setInterval(assistLoop, 10000)
@@ -516,4 +450,4 @@ const init = () => {
   })
 }
 
-export default { init, isUserIdle, getResourcesAtCap }
+export default { init, getResourcesAtCap }

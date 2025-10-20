@@ -1,4 +1,4 @@
-import { state, reactUtil } from '../utils'
+import { state, reactUtil, localStorage } from '../utils'
 import manageOptions from './manageOptions'
 
 const id = 'theresmore-automation'
