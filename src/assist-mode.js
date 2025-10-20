@@ -299,7 +299,6 @@ const tryResearchAtCap = async () => {
         })
 
         button.click()
-        lastMagicCheckAction = Date.now()
         await sleep(500)
 
         // Navigate back to Build page
@@ -374,7 +373,6 @@ const tryPrayerAtCap = async () => {
         })
 
         button.click()
-        lastMagicCheckAction = Date.now()
         await sleep(500)
 
         // Navigate back to Build page
@@ -480,6 +478,9 @@ const assistLoop = async () => {
   // Only if at least one of research or prayers is enabled
   if (canCheckMagic() && (state.options.assistMode?.research !== false || state.options.assistMode?.prayers !== false)) {
     logger({ msgLevel: 'debug', msg: 'Assist Mode: Checking for research and prayer opportunities...' })
+
+    // Update cooldown timer immediately - we only check once per cooldown period regardless of success
+    lastMagicCheckAction = Date.now()
 
     // Try research first (if enabled)
     if (state.options.assistMode?.research !== false) {
