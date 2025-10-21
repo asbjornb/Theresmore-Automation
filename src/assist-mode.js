@@ -448,7 +448,7 @@ const assistLoop = async () => {
   }
 
   // Check if user is idle
-  const idleThreshold = state.options.assistMode?.idleSeconds ? state.options.assistMode.idleSeconds * 1000 : 60000
+  const idleThreshold = state.options.assistMode?.idleSeconds ? state.options.assistMode.idleSeconds * 1000 : 600000
   if (!actions.isUserIdle(idleThreshold)) {
     const idleTime = actions.getIdleTimeSeconds()
     const thresholdSec = Math.floor(idleThreshold / 1000)
@@ -533,7 +533,7 @@ const init = () => {
   if (!state.options.assistMode) {
     state.options.assistMode = {
       enabled: false,
-      idleSeconds: 60,
+      idleSeconds: 600,
     }
   }
 

@@ -59,8 +59,8 @@ const createPanel = () => {
         <label class="block mb-2">
           <span class="font-bold">Idle Threshold (seconds before assisting):</span>
         </label>
-        <input type="number" min="10" max="300" step="10" class="taIdleThreshold dark:bg-mydark-200 px-2 py-1 rounded" value="${state.options.assistMode?.idleSeconds || 60}">
-        <p class="text-xs text-gray-400 mt-1">Default: 60 seconds. How long to wait after your last action before assist mode activates.</p>
+        <input type="number" min="10" max="3600" step="10" class="taIdleThreshold dark:bg-mydark-200 px-2 py-1 rounded" value="${state.options.assistMode?.idleSeconds || 600}">
+        <p class="text-xs text-gray-400 mt-1">Default: 600 seconds (10 minutes). How long to wait after your last action before assist mode activates.</p>
       </div>
 
       <hr class="my-6 border-gray-700">
@@ -110,7 +110,7 @@ const createPanel = () => {
   // Individual feature checkboxes
   const updateFeature = (feature, checkbox) => {
     if (!state.options.assistMode) {
-      state.options.assistMode = { enabled: false, idleSeconds: 60 }
+      state.options.assistMode = { enabled: false, idleSeconds: 600 }
     }
     state.options.assistMode[feature] = checkbox.checked
 
