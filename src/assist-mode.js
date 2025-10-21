@@ -447,6 +447,12 @@ const assistLoop = async () => {
     return
   }
 
+  // Respect the main automation pause button
+  if (state.scriptPaused) {
+    logger({ msgLevel: 'debug', msg: 'Assist Mode: Script is paused, not running' })
+    return
+  }
+
   // Check if user is idle
   const idleThreshold = state.options.assistMode?.idleSeconds ? state.options.assistMode.idleSeconds * 1000 : 600000
   if (!actions.isUserIdle(idleThreshold)) {
