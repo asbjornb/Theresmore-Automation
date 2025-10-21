@@ -14,6 +14,7 @@ class AssistModeActions {
     this.lastUserActivity = Date.now()
     this.lastActiveTab = null
     this.isActing = false // Flag to distinguish automated actions from user actions
+    this.automatedClicksPending = 0 // Track automated clicks we're about to make
   }
 
   /**
@@ -22,16 +23,21 @@ class AssistModeActions {
   initActivityMonitor() {
     if (typeof window === 'undefined') return
 
-    // Reset idle timer on user clicks (but not assist mode's actions)
+    // Listen to ALL clicks and detect unexpected ones (user clicks during automation)
     document.addEventListener('click', () => {
-      if (this.isActing) return
-      this.lastUserActivity = Date.now()
-      logger({ msgLevel: 'debug', msg: 'Assist Mode: Activity detected (click)' })
+      // If we're not expecting a click, it must be from the user
+      if (this.automatedClicksPending === 0) {
+        this.lastUserActivity = Date.now()
+        logger({ msgLevel: 'debug', msg: 'Assist Mode: Activity detected (click)' })
+      } else {
+        // This was an automated click we initiated
+        this.automatedClicksPending--
+        logger({ msgLevel: 'debug', msg: 'Assist Mode: Automated click consumed' })
+      }
     })
 
-    // Reset idle timer on keypresses
+    // Reset idle timer on keypresses (always user-initiated)
     document.addEventListener('keypress', () => {
-      if (this.isActing) return
       this.lastUserActivity = Date.now()
       logger({ msgLevel: 'debug', msg: 'Assist Mode: Activity detected (keypress)' })
     })
@@ -96,6 +102,7 @@ class AssistModeActions {
    */
   async click(button) {
     return this.executeAction(() => {
+      this.automatedClicksPending++
       button.click()
     })
   }

@@ -253,6 +253,7 @@ const tryResearchAtCap = async () => {
 
     if (!onResearchPage) {
       logger({ msgLevel: 'debug', msg: 'Assist Mode: Navigating to Research page' })
+      actions.automatedClicksPending++ // switchPage will click a tab
       await navigation.switchPage(CONSTANTS.PAGES.RESEARCH)
       await sleep(1000)
     }
@@ -281,10 +282,12 @@ const tryResearchAtCap = async () => {
           msg: `Assist Mode: Researching ${research.id} to spend ${usedResource.id}`,
         })
 
+        actions.automatedClicksPending++
         button.click()
         await sleep(500)
 
         // Navigate back to Build page
+        actions.automatedClicksPending++ // switchPage will click a tab
         await navigation.switchPage(CONSTANTS.PAGES.BUILD)
         await sleep(500)
 
@@ -293,6 +296,7 @@ const tryResearchAtCap = async () => {
     }
 
     // Navigate back to Build page
+    actions.automatedClicksPending++ // switchPage will click a tab
     await navigation.switchPage(CONSTANTS.PAGES.BUILD)
     await sleep(500)
 
@@ -322,12 +326,14 @@ const tryPrayerAtCap = async () => {
 
     if (!onMagicPage) {
       logger({ msgLevel: 'debug', msg: 'Assist Mode: Navigating to Magic page' })
+      actions.automatedClicksPending++ // switchPage will click a tab
       await navigation.switchPage(CONSTANTS.PAGES.MAGIC)
       await sleep(1000)
     }
 
     // Navigate to Prayers subpage
     logger({ msgLevel: 'debug', msg: 'Assist Mode: Navigating to Prayers subpage' })
+    actions.automatedClicksPending++ // switchSubPage will click at least the subpage tab
     await navigation.switchSubPage(CONSTANTS.SUBPAGES.PRAYERS, CONSTANTS.PAGES.MAGIC)
     await sleep(1000)
 
@@ -355,10 +361,12 @@ const tryPrayerAtCap = async () => {
           msg: `Assist Mode: Praying ${prayer.id} to spend ${usedResource.id}`,
         })
 
+        actions.automatedClicksPending++
         button.click()
         await sleep(500)
 
         // Navigate back to Build page
+        actions.automatedClicksPending++ // switchPage will click a tab
         await navigation.switchPage(CONSTANTS.PAGES.BUILD)
         await sleep(500)
 
@@ -367,6 +375,7 @@ const tryPrayerAtCap = async () => {
     }
 
     // Navigate back to Build page
+    actions.automatedClicksPending++ // switchPage will click a tab
     await navigation.switchPage(CONSTANTS.PAGES.BUILD)
     await sleep(500)
 
@@ -393,6 +402,7 @@ const tryBuildAtCap = async () => {
 
   if (!onBuildPage) {
     logger({ msgLevel: 'debug', msg: 'Assist Mode: Navigating to Build page' })
+    actions.automatedClicksPending++ // switchPage will click a tab
     await navigation.switchPage(CONSTANTS.PAGES.BUILD)
     await sleep(1000)
   }
