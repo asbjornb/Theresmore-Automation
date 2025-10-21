@@ -456,16 +456,23 @@ const assistLoop = async () => {
     return
   }
 
-  // Try research and prayers if cooldown has passed (every 2 minutes, shared timer)
-  // Only if at least one of research or prayers is enabled
-  if (canCheckMagic() && (state.options.assistMode?.research !== false || state.options.assistMode?.prayers !== false)) {
-    logger({ msgLevel: 'debug', msg: 'Assist Mode: Checking for research and prayer opportunities...' })
+  // Get current capped resources
+  const cappedResources = getResourcesAtCap()
+  const cappedResourceIds = cappedResources.map((r) => r.id)
 
-    // Update cooldown timer immediately - we only check once per cooldown period regardless of success
+  // Check if research or faith are capped and we can check magic (cooldown passed)
+  const researchIsCapped = cappedResourceIds.includes('research')
+  const faithIsCapped = cappedResourceIds.includes('faith')
+  const shouldCheckMagic = (researchIsCapped || faithIsCapped) && canCheckMagic()
+
+  if (shouldCheckMagic) {
+    // Update cooldown timer once - we only check once per cooldown period
     lastMagicCheckAction = Date.now()
 
-    // Try research first (if enabled)
-    if (state.options.assistMode?.research !== false) {
+    // Try research if research resource is capped (if enabled)
+    if (researchIsCapped && state.options.assistMode?.research !== false) {
+      logger({ msgLevel: 'debug', msg: 'Assist Mode: Research is capped, checking for research opportunities...' })
+
       try {
         const researchResult = await tryResearchAtCap()
         if (researchResult.researched) {
@@ -480,8 +487,10 @@ const assistLoop = async () => {
       }
     }
 
-    // If research didn't happen, try prayers (if enabled)
-    if (state.options.assistMode?.prayers !== false) {
+    // Try prayers if faith resource is capped (if enabled)
+    if (faithIsCapped && state.options.assistMode?.prayers !== false) {
+      logger({ msgLevel: 'debug', msg: 'Assist Mode: Faith is capped, checking for prayer opportunities...' })
+
       try {
         const prayerResult = await tryPrayerAtCap()
         if (prayerResult.prayed) {
