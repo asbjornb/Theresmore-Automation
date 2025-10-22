@@ -23,16 +23,28 @@ class AssistModeActions {
   initActivityMonitor() {
     if (typeof window === 'undefined') return
 
-    // Listen to ALL clicks and detect unexpected ones (user clicks during automation)
-    document.addEventListener('click', () => {
-      // If we're not expecting a click, it must be from the user
-      if (this.automatedClicksPending === 0) {
+    // Listen for clicks and detect user activity
+    document.addEventListener('click', (event) => {
+      // Only track trusted (real user) clicks, not programmatic ones
+      if (!event.isTrusted) {
+        return
+      }
+
+      // During automation: check if this click was expected
+      if (this.isActing) {
+        if (this.automatedClicksPending > 0) {
+          // Expected automated click
+          this.automatedClicksPending--
+          logger({ msgLevel: 'debug', msg: 'Assist Mode: Automated click consumed' })
+        } else {
+          // Unexpected click during automation = user is active!
+          this.lastUserActivity = Date.now()
+          logger({ msgLevel: 'debug', msg: 'Assist Mode: Unexpected click detected during automation!' })
+        }
+      } else {
+        // Not during automation: track as user activity
         this.lastUserActivity = Date.now()
         logger({ msgLevel: 'debug', msg: 'Assist Mode: Activity detected (click)' })
-      } else {
-        // This was an automated click we initiated
-        this.automatedClicksPending--
-        logger({ msgLevel: 'debug', msg: 'Assist Mode: Automated click consumed' })
       }
     })
 

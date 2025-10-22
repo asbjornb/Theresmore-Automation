@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Userscript Test</title>
+  </head>
+  <body>
+    <h1>Testing Userscript Load</h1>
+    <div id="test-output"></div>
+    <script>
+      const output = document.getElementById('test-output')
+
+      // Try to load and execute the userscript
+      fetch('dist/release-4.16.0.user.js')
+        .then((response) => response.text())
+        .then((code) => {
+          output.innerHTML += '<p>✓ File loaded successfully (' + (code.length / 1024).toFixed(1) + ' KB)</p>'
+
+          // Try to execute it
+          try {
+            eval(code)
+            output.innerHTML += '<p>✓ Script executed without errors</p>'
+          } catch (e) {
+            output.innerHTML += '<p style="color:red">✗ Error executing script: ' + e.message + '</p>'
+            output.innerHTML += '<pre>' + e.stack + '</pre>'
+          }
+        })
+        .catch((e) => {
+          output.innerHTML += '<p style="color:red">✗ Error loading file: ' + e.message + '</p>'
+        })
+    </script>
+  </body>
+</html>
