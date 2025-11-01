@@ -1,5 +1,5 @@
 import { buildings, tech, spells } from './data'
-import { CONSTANTS, navigation, selectors, logger, sleep, state, reactUtil, keyGen } from './utils'
+import { CONSTANTS, navigation, selectors, logger, sleep, state, reactUtil, keyGen, resources } from './utils'
 import actions from './assist-mode-actions'
 
 // Buildings to never auto-build (strategic choices or negative effects)
@@ -136,40 +136,66 @@ const getResourcesAtCap = () => {
   const threshold = 0.9 // 90% capacity
   const allResources = []
 
-  // Access resource data directly from React state instead of parsing DOM
-  // This gives us the actual cap values including bonuses from buildings/legacies/NG+
-  const gameData = reactUtil.getGameData()
-  if (!gameData || !gameData.ResourcesStore || !gameData.ResourcesStore.resources) {
-    logger({ msgLevel: 'error', msg: 'Assist Mode: Could not access ResourcesStore' })
-    return cappedResources
-  }
+  // Use the existing resources.get() utility which parses DOM correctly
+  // Try to get each known resource
+  const resourcesToCheck = [
+    'gold',
+    'food',
+    'wood',
+    'stone',
+    'copper',
+    'iron',
+    'tools',
+    'cow',
+    'horse',
+    'research',
+    'faith',
+    'mana',
+    'building_material',
+    'steel',
+    'crystal',
+    'supplies',
+  ]
 
-  const resources = gameData.ResourcesStore.resources
+  let foundCount = 0
+  let nullCount = 0
 
-  resources.forEach((resource) => {
+  resourcesToCheck.forEach((resourceId) => {
     try {
-      if (!resource || !resource.id) return
+      const resourceData = resources.get(resourceId)
+      if (!resourceData) {
+        nullCount++
+        return
+      }
 
-      const current = resource.value || 0
-      const max = resource.max || 0
+      foundCount++
+      const current = resourceData.current || 0
+      const max = resourceData.max || 0
+
+      logger({
+        msgLevel: 'debug',
+        msg: `Assist Mode: ${resourceId}: ${current}/${max} (${Math.round((current / max) * 100)}%)`,
+      })
 
       if (!max || max <= 0) return
 
       const percentage = current / max
-      allResources.push(`${resource.id}:${Math.round(percentage * 100)}%`)
+      allResources.push(`${resourceId}:${Math.round(percentage * 100)}%`)
 
       if (percentage >= threshold) {
         cappedResources.push({
-          id: resource.id,
+          id: resourceId,
           amount: current,
           capacity: max,
           percentage: percentage,
         })
       }
     } catch (e) {
-      logger({ msgLevel: 'error', msg: `Assist Mode: Error reading resource ${resource?.id}: ${e.message}` })
+      logger({ msgLevel: 'error', msg: `Assist Mode: Error checking ${resourceId}: ${e.message}` })
     }
   })
+
+  logger({ msgLevel: 'debug', msg: `Assist Mode: Found ${foundCount} resources, ${nullCount} returned null` })
 
   logger({ msgLevel: 'debug', msg: `Assist Mode: All resources: ${allResources.join(', ')}` })
   logger({
