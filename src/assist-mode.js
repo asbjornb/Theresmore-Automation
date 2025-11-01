@@ -136,48 +136,38 @@ const getResourcesAtCap = () => {
   const threshold = 0.9 // 90% capacity
   const allResources = []
 
-  // Query all resource rows once (much faster than individual queries)
-  const resourceRows = document.querySelectorAll('#root div > div > div > table > tbody > tr')
+  // Access resource data directly from React state instead of parsing DOM
+  // This gives us the actual cap values including bonuses from buildings/legacies/NG+
+  const gameData = reactUtil.getGameData()
+  if (!gameData || !gameData.ResourcesStore || !gameData.ResourcesStore.resources) {
+    logger({ msgLevel: 'error', msg: 'Assist Mode: Could not access ResourcesStore' })
+    return cappedResources
+  }
 
-  resourceRows.forEach((row) => {
+  const resources = gameData.ResourcesStore.resources
+
+  resources.forEach((resource) => {
     try {
-      const cells = row.childNodes
-      if (!cells || cells.length < 3) return
+      if (!resource || !resource.id) return
 
-      // Get resource ID from React key
-      const firstCell = cells[0].querySelector('span')
-      if (!firstCell) return
-
-      const key = reactUtil.getNearestKey(firstCell, 6)
-      if (!key) return
-
-      const resourceId = keyGen.resource.id(key)
-      if (!resourceId) return
-
-      // Parse current/max from second cell (format: "1000/1000")
-      const valuesText = cells[1].textContent.trim()
-      const values = valuesText.split('/').map((x) => parseFloat(x.replace(/[^0-9.\-]/g, '')))
-
-      if (values.length !== 2) return
-
-      const current = values[0]
-      const max = values[1]
+      const current = resource.value || 0
+      const max = resource.max || 0
 
       if (!max || max <= 0) return
 
       const percentage = current / max
-      allResources.push(`${resourceId}:${Math.round(percentage * 100)}%`)
+      allResources.push(`${resource.id}:${Math.round(percentage * 100)}%`)
 
       if (percentage >= threshold) {
         cappedResources.push({
-          id: resourceId,
+          id: resource.id,
           amount: current,
           capacity: max,
           percentage: percentage,
         })
       }
     } catch (e) {
-      // Skip malformed rows
+      logger({ msgLevel: 'error', msg: `Assist Mode: Error reading resource ${resource?.id}: ${e.message}` })
     }
   })
 
