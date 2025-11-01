@@ -53,14 +53,16 @@ const canCheckMagic = () => {
 const isBlacklisted = (buildingId) => {
   // Check static blacklist
   if (BLACKLIST.includes(buildingId)) {
+    logger({ msgLevel: 'debug', msg: `Assist Mode: ${buildingId} is in static blacklist` })
     return true
   }
 
-  // Check if building costs lucky stone
+  // Check if building costs luck (lucky stones)
   const buildingData = buildings.find((b) => b.id === buildingId)
   if (buildingData && buildingData.req) {
-    const costsLuckyStone = buildingData.req.some((req) => req.type === 'resource' && req.id === 'lucky_stone')
-    if (costsLuckyStone) {
+    const costsLuck = buildingData.req.some((req) => req.type === 'resource' && req.id === 'luck')
+    if (costsLuck) {
+      logger({ msgLevel: 'log', msg: `Assist Mode: ${buildingId} costs Lucky Stones - BLACKLISTED` })
       return true
     }
   }
@@ -177,8 +179,12 @@ const getResourcesAtCap = () => {
 
 // Find buildings that consume a specific resource (with safety checks)
 const getBuildingsThatConsume = (resourceId) => {
-  return buildings.filter((building) => {
+  const candidates = buildings.filter((building) => {
     if (!building.req) return false
+
+    // Check if building requires this resource first
+    const requiresResource = building.req.some((req) => req.type === 'resource' && req.id === resourceId)
+    if (!requiresResource) return false
 
     // Check if building is blacklisted
     if (isBlacklisted(building.id)) {
@@ -187,17 +193,25 @@ const getBuildingsThatConsume = (resourceId) => {
 
     // Check for negative non-food production (like Pillars with -gold)
     if (hasNegativeNonFoodProduction(building)) {
+      logger({ msgLevel: 'debug', msg: `Assist Mode: ${building.id} has negative non-food production - skipping` })
       return false
     }
 
     // Check if building would make food production negative
     if (!isFoodSafe(building)) {
+      logger({ msgLevel: 'debug', msg: `Assist Mode: ${building.id} would make food negative - skipping` })
       return false
     }
 
-    // Check if building requires this resource
-    return building.req.some((req) => req.type === 'resource' && req.id === resourceId)
+    return true
   })
+
+  logger({
+    msgLevel: 'debug',
+    msg: `Assist Mode: Found ${candidates.length} safe buildings for ${resourceId}: ${candidates.map((b) => b.id).join(', ')}`,
+  })
+
+  return candidates
 }
 
 // Find research that consumes capped resources (safe research only)
