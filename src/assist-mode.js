@@ -234,11 +234,25 @@ const getResearchThatConsumes = (resourceIds) => {
   })
 }
 
-// Find prayers that consume capped resources (all prayers are safe)
+// Check if a prayer is mutually exclusive (blocks other prayers)
+const isMutuallyExclusivePrayer = (prayer) => {
+  if (!prayer.gen) return false
+
+  // Check if this prayer has a gen entry that blocks another prayer (value === -1)
+  return prayer.gen.some((gen) => gen.value === -1 && gen.type !== 'resource')
+}
+
+// Find prayers that consume capped resources (safe prayers only)
 const getPrayersThatConsume = (resourceIds) => {
   return spells.filter((spell) => {
     if (spell.type !== 'prayer') return false
     if (!spell.req) return false
+
+    // Skip mutually exclusive prayers (player should choose these manually)
+    if (isMutuallyExclusivePrayer(spell)) {
+      logger({ msgLevel: 'debug', msg: `Assist Mode: ${spell.id} is mutually exclusive - skipping` })
+      return false
+    }
 
     // Check if prayer requires any of the capped resources
     return spell.req.some((req) => req.type === 'resource' && resourceIds.includes(req.id))
