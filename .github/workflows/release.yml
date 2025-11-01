@@ -25,13 +25,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build project
-        run: npm run build
+      - name: Run tests
+        run: npm test
+
+      - name: Build release
+        run: npm run build:release
+
+      - name: Get version from package.json
+        id: package_version
+        run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: Release ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
+          body: |
+            ## Theresmore Automation ${{ github.ref_name }}
+
+            Install the userscript from the attached file below.
+
+            ### Direct Install Link
+            ```
+            https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/release-${{ steps.package_version.outputs.VERSION }}.user.js
+            ```
+
+            See commit history for detailed changes.
           files: |
-            dist/bundle.user.js
+            dist/release-${{ steps.package_version.outputs.VERSION }}.user.js
