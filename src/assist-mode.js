@@ -235,11 +235,6 @@ const getBuildingsThatConsume = (resourceId) => {
     return true
   })
 
-  logger({
-    msgLevel: 'debug',
-    msg: `Assist Mode: Found ${candidates.length} safe buildings for ${resourceId}: ${candidates.map((b) => b.id).join(', ')}`,
-  })
-
   return candidates
 }
 
@@ -479,7 +474,21 @@ const tryBuildAtCap = async () => {
       continue
     }
 
-    for (const building of buildingsForResource) {
+    // Filter to only buildings that have available buttons
+    const availableBuildings = buildingsForResource.filter((building) => {
+      const buildingKey = keyGen.building.key(building.id)
+      return buttons.some((btn) => {
+        const id = reactUtil.getNearestKey(btn, 6)
+        return id === buildingKey && !btn.classList.toString().includes('btn-off')
+      })
+    })
+
+    logger({
+      msgLevel: 'debug',
+      msg: `Assist Mode: Found ${availableBuildings.length} safe buildings for ${resource.id}: ${availableBuildings.map((b) => b.id).join(', ')}`,
+    })
+
+    for (const building of availableBuildings) {
       const buildingKey = keyGen.building.key(building.id)
 
       // Find the button for this building
