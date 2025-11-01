@@ -172,6 +172,64 @@ if (true) {
     }
   })
 
+  // Test 4: Food safety logic
+  console.log('\nTEST: Food safety logic should prevent negative food production')
+
+  // Mock isFoodSafe function to test the logic
+  const testFoodSafety = (building, currentFoodProduction) => {
+    let foodCost = 0
+    if (building.gen) {
+      const foodGen = building.gen.find((gen) => gen.type === 'resource' && gen.id === 'food')
+      if (foodGen) {
+        foodCost = foodGen.value
+      }
+    }
+
+    // Same logic as in assist-mode.js
+    if (foodCost < 0) {
+      return currentFoodProduction > Math.abs(foodCost)
+    }
+    return true
+  }
+
+  // Test scenarios
+  const housingBuilding = buildings.find((b) => b.id === 'common_house') // -0.5 food/s
+  const farmBuilding = buildings.find((b) => b.id === 'farm') // +0.5 food/s
+
+  if (!housingBuilding || !farmBuilding) {
+    console.log('  ⚠️  Test buildings not found')
+  } else {
+    // Scenario 1: Positive food production, should allow both
+    const scenario1Housing = testFoodSafety(housingBuilding, 2.0)
+    const scenario1Farm = testFoodSafety(farmBuilding, 2.0)
+    if (scenario1Housing && scenario1Farm) {
+      console.log('  ✅ With +2.0 food/s: both housing and farms allowed')
+    } else {
+      console.log('  ❌ With +2.0 food/s: should allow both buildings (BUG!)')
+      allPassed = false
+    }
+
+    // Scenario 2: Low positive food (0.3/s), should block housing (-0.5) but allow farms
+    const scenario2Housing = testFoodSafety(housingBuilding, 0.3)
+    const scenario2Farm = testFoodSafety(farmBuilding, 0.3)
+    if (!scenario2Housing && scenario2Farm) {
+      console.log('  ✅ With +0.3 food/s: housing blocked, farms allowed')
+    } else {
+      console.log('  ❌ With +0.3 food/s: should block housing but allow farms (BUG!)')
+      allPassed = false
+    }
+
+    // Scenario 3: Negative food (-2.0/s), should block housing but still allow farms
+    const scenario3Housing = testFoodSafety(housingBuilding, -2.0)
+    const scenario3Farm = testFoodSafety(farmBuilding, -2.0)
+    if (!scenario3Housing && scenario3Farm) {
+      console.log('  ✅ With -2.0 food/s: housing blocked, farms still allowed (can recover)')
+    } else {
+      console.log('  ❌ With -2.0 food/s: should block housing but allow farms (BUG!)')
+      allPassed = false
+    }
+  }
+
   console.log('\n' + (allPassed ? '✅ ALL TESTS PASSED' : '❌ SOME TESTS FAILED'))
   if (!allPassed) {
     process.exit(1)
