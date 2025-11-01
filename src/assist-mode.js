@@ -113,8 +113,21 @@ const isFoodSafe = (building) => {
     }
   }
 
-  // If building would make total food production negative, it's not safe
-  return currentFoodProduction + foodCost >= 0
+  // Buildings with negative food (housing) require current production to be higher than the cost
+  // This prevents food production from ever going negative
+  if (foodCost < 0) {
+    const wouldBePositive = currentFoodProduction > Math.abs(foodCost)
+    if (!wouldBePositive) {
+      logger({
+        msgLevel: 'debug',
+        msg: `Assist Mode: ${building.id} costs ${foodCost} food/s, but current production is only ${currentFoodProduction.toFixed(1)}/s - skipping`,
+      })
+    }
+    return wouldBePositive
+  }
+
+  // Buildings with positive or zero food impact are always safe
+  return true
 }
 
 // Get resources that are at or above 90% capacity
