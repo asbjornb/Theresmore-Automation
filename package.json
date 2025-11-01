@@ -1,6 +1,6 @@
 {
   "name": "theresmore-automation",
-  "version": "4.16.1",
+  "version": "4.17.0",
   "description": "Automation suite for Theresmore game",
   "keywords": [
     "userscript",
@@ -20,7 +20,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node src/assist-mode.test.js",
     "build": "npx rollup --config rollup.config.mjs",
     "watch": "npx rollup --config rollup.config.mjs --watch",
     "serve": "node server.js",
