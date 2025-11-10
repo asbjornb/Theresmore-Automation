@@ -53,7 +53,6 @@ const canCheckMagic = () => {
 const isBlacklisted = (buildingId) => {
   // Check static blacklist
   if (BLACKLIST.includes(buildingId)) {
-    logger({ msgLevel: 'debug', msg: `Assist Mode: ${buildingId} is in static blacklist` })
     return true
   }
 
@@ -62,7 +61,6 @@ const isBlacklisted = (buildingId) => {
   if (buildingData && buildingData.req) {
     const costsLuck = buildingData.req.some((req) => req.type === 'resource' && req.id === 'luck')
     if (costsLuck) {
-      logger({ msgLevel: 'log', msg: `Assist Mode: ${buildingId} costs Lucky Stones - BLACKLISTED` })
       return true
     }
   }
@@ -117,12 +115,6 @@ const isFoodSafe = (building) => {
   // This prevents food production from ever going negative
   if (foodCost < 0) {
     const wouldBePositive = currentFoodProduction > Math.abs(foodCost)
-    if (!wouldBePositive) {
-      logger({
-        msgLevel: 'debug',
-        msg: `Assist Mode: ${building.id} costs ${foodCost} food/s, but current production is only ${currentFoodProduction.toFixed(1)}/s - skipping`,
-      })
-    }
     return wouldBePositive
   }
 
@@ -222,13 +214,11 @@ const getBuildingsThatConsume = (resourceId) => {
 
     // Check for negative non-food production (like Pillars with -gold)
     if (hasNegativeNonFoodProduction(building)) {
-      logger({ msgLevel: 'debug', msg: `Assist Mode: ${building.id} has negative non-food production - skipping` })
       return false
     }
 
     // Check if building would make food production negative
     if (!isFoodSafe(building)) {
-      logger({ msgLevel: 'debug', msg: `Assist Mode: ${building.id} would make food negative - skipping` })
       return false
     }
 
@@ -274,7 +264,6 @@ const getPrayersThatConsume = (resourceIds) => {
 
     // Skip mutually exclusive prayers (player should choose these manually)
     if (isMutuallyExclusivePrayer(spell)) {
-      logger({ msgLevel: 'debug', msg: `Assist Mode: ${spell.id} is mutually exclusive - skipping` })
       return false
     }
 
@@ -450,7 +439,6 @@ const tryBuildAtCap = async () => {
 
   // Navigate to Build page if not already there
   const onBuildPage = navigation.checkPage(CONSTANTS.PAGES.BUILD)
-  const originalPage = !onBuildPage
 
   if (!onBuildPage) {
     logger({ msgLevel: 'debug', msg: 'Assist Mode: Navigating to Build page' })
@@ -459,61 +447,93 @@ const tryBuildAtCap = async () => {
     await sleep(1000)
   }
 
-  // Get all buildable buttons
-  const buttons = selectors.getAllButtons(false)
+  // Check both City and Colony subpages for available buildings
+  const subpagesToCheck = [CONSTANTS.SUBPAGES.CITY, CONSTANTS.SUBPAGES.COLONY]
+  const allAvailableBuildings = []
 
-  // Try to find a building we can build
-  for (const resource of cappedResources) {
-    const buildingsForResource = getBuildingsThatConsume(resource.id)
+  for (const subpage of subpagesToCheck) {
+    // Navigate to the subpage
+    logger({ msgLevel: 'debug', msg: `Assist Mode: Checking ${subpage} subpage for buildings` })
+    actions.automatedClicksPending++ // switchSubPage will click
+    await navigation.switchSubPage(subpage, CONSTANTS.PAGES.BUILD)
+    await sleep(1000)
 
-    if (buildingsForResource.length === 0) {
-      logger({
-        msgLevel: 'debug',
-        msg: `Assist Mode: No safe buildings found for ${resource.id}`,
-      })
-      continue
-    }
+    // Get all buildable buttons on this subpage
+    const buttons = selectors.getAllButtons(false)
 
-    // Filter to only buildings that have available buttons
-    const availableBuildings = buildingsForResource.filter((building) => {
-      const buildingKey = keyGen.building.key(building.id)
-      return buttons.some((btn) => {
-        const id = reactUtil.getNearestKey(btn, 6)
-        return id === buildingKey && !btn.classList.toString().includes('btn-off')
-      })
-    })
+    // Try to find buildings we can build for each capped resource
+    for (const resource of cappedResources) {
+      const buildingsForResource = getBuildingsThatConsume(resource.id)
 
-    logger({
-      msgLevel: 'debug',
-      msg: `Assist Mode: Found ${availableBuildings.length} safe buildings for ${resource.id}: ${availableBuildings.map((b) => b.id).join(', ')}`,
-    })
-
-    for (const building of availableBuildings) {
-      const buildingKey = keyGen.building.key(building.id)
-
-      // Find the button for this building
-      const button = buttons.find((btn) => {
-        const id = reactUtil.getNearestKey(btn, 6)
-        return id === buildingKey && !btn.classList.toString().includes('btn-off')
-      })
-
-      if (button) {
-        logger({
-          msgLevel: 'log',
-          msg: `Assist Mode: Building ${building.id} to spend ${resource.id} (${Math.round(resource.percentage * 100)}% full)`,
-        })
-
-        // Click using actions wrapper to prevent resetting idle timer
-        await actions.click(button)
-
-        lastBuildAction = Date.now()
-        await sleep(500)
-        return { built: true, building: building.id, resource: resource.id }
+      if (buildingsForResource.length === 0) {
+        continue
       }
+
+      // Filter to only buildings that have available buttons on this subpage
+      const availableBuildings = buildingsForResource.filter((building) => {
+        const buildingKey = keyGen.building.key(building.id)
+        return buttons.some((btn) => {
+          const id = reactUtil.getNearestKey(btn, 6)
+          return id === buildingKey && !btn.classList.toString().includes('btn-off')
+        })
+      })
+
+      // Add to our collection with metadata
+      availableBuildings.forEach((building) => {
+        allAvailableBuildings.push({
+          building,
+          resource,
+          subpage,
+          key: keyGen.building.key(building.id),
+        })
+      })
     }
   }
 
-  return { built: false, reason: 'no_safe_buildings' }
+  // Log what we found
+  if (allAvailableBuildings.length === 0) {
+    logger({ msgLevel: 'debug', msg: 'Assist Mode: No safe/affordable buildings found on any subpage' })
+    return { built: false, reason: 'no_safe_buildings' }
+  }
+
+  logger({
+    msgLevel: 'debug',
+    msg: `Assist Mode: Found ${allAvailableBuildings.length} available buildings across all subpages: ${allAvailableBuildings.map((b) => b.building.id).join(', ')}`,
+  })
+
+  // Randomly select one building from all available options
+  const randomIndex = Math.floor(Math.random() * allAvailableBuildings.length)
+  const selected = allAvailableBuildings[randomIndex]
+
+  // Navigate to the correct subpage for this building
+  logger({ msgLevel: 'debug', msg: `Assist Mode: Navigating to ${selected.subpage} to build ${selected.building.id}` })
+  actions.automatedClicksPending++ // switchSubPage will click
+  await navigation.switchSubPage(selected.subpage, CONSTANTS.PAGES.BUILD)
+  await sleep(1000)
+
+  // Get buttons on the correct subpage and find our building
+  const buttons = selectors.getAllButtons(false)
+  const button = buttons.find((btn) => {
+    const id = reactUtil.getNearestKey(btn, 6)
+    return id === selected.key && !btn.classList.toString().includes('btn-off')
+  })
+
+  if (button) {
+    logger({
+      msgLevel: 'log',
+      msg: `Assist Mode: Building ${selected.building.id} on ${selected.subpage} to spend ${selected.resource.id} (${Math.round(selected.resource.percentage * 100)}% full)`,
+    })
+
+    // Click using actions wrapper to prevent resetting idle timer
+    await actions.click(button)
+
+    lastBuildAction = Date.now()
+    await sleep(500)
+    return { built: true, building: selected.building.id, resource: selected.resource.id, subpage: selected.subpage }
+  }
+
+  logger({ msgLevel: 'error', msg: 'Assist Mode: Button disappeared before clicking' })
+  return { built: false, reason: 'button_disappeared' }
 }
 
 // Main assist mode loop
