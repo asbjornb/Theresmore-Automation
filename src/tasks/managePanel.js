@@ -40,14 +40,41 @@ const createPanel = (switchScriptState) => {
   controlPanel.querySelector('.taManageOptions').addEventListener('click', manageAssistMode.togglePanel)
 
   // Spell control buttons
-  controlPanel.querySelector('.taCastAllSpells').addEventListener('click', async () => {
-    await assistMode.castAllSpells()
-    updatePanel() // Update display after casting
+  const castButton = controlPanel.querySelector('.taCastAllSpells')
+  const dismissButton = controlPanel.querySelector('.taDismissAllSpells')
+
+  castButton.addEventListener('click', async () => {
+    // Disable both buttons to prevent multiple clicks
+    castButton.disabled = true
+    dismissButton.disabled = true
+    castButton.textContent = 'Casting...'
+
+    try {
+      await assistMode.castAllSpells()
+      updatePanel() // Update display after casting
+    } finally {
+      // Re-enable buttons
+      castButton.disabled = false
+      dismissButton.disabled = false
+      castButton.textContent = 'All On'
+    }
   })
 
-  controlPanel.querySelector('.taDismissAllSpells').addEventListener('click', async () => {
-    await assistMode.dismissAllSpells()
-    updatePanel() // Update display after dismissing
+  dismissButton.addEventListener('click', async () => {
+    // Disable both buttons to prevent multiple clicks
+    castButton.disabled = true
+    dismissButton.disabled = true
+    dismissButton.textContent = 'Dismissing...'
+
+    try {
+      await assistMode.dismissAllSpells()
+      updatePanel() // Update display after dismissing
+    } finally {
+      // Re-enable buttons
+      castButton.disabled = false
+      dismissButton.disabled = false
+      dismissButton.textContent = 'All Off'
+    }
   })
 }
 

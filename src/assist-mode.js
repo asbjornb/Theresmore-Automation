@@ -373,13 +373,18 @@ const checkSpellStatus = async () => {
     await navigation.switchSubPage(CONSTANTS.SUBPAGES.SPELLS, CONSTANTS.PAGES.MAGIC)
     await sleep(1000)
 
-    // Count cast and dismiss buttons
-    const allButtons = selectors.getAllButtons(true)
+    // Count cast and dismiss buttons - use direct query to get all buttons
+    const allButtons = Array.from(document.querySelectorAll('button'))
     const castButtons = allButtons.filter((btn) => btn.textContent === 'Cast this spell')
     const dismissButtons = allButtons.filter((btn) => btn.textContent === 'Dismiss this spell')
 
     const totalSpells = castButtons.length + dismissButtons.length
     const activeSpells = dismissButtons.length
+
+    logger({
+      msgLevel: 'debug',
+      msg: `Assist Mode: Spell button counts - Cast: ${castButtons.length}, Dismiss: ${dismissButtons.length}`,
+    })
 
     logger({
       msgLevel: 'debug',
@@ -417,7 +422,7 @@ const castAllSpells = async () => {
     await sleep(1000)
 
     // Find all "Cast this spell" buttons and click them
-    const allButtons = selectors.getAllButtons(true)
+    const allButtons = Array.from(document.querySelectorAll('button'))
     const castButtons = allButtons.filter((btn) => btn.textContent === 'Cast this spell')
 
     logger({ msgLevel: 'log', msg: `Assist Mode: Casting ${castButtons.length} spells` })
@@ -425,7 +430,7 @@ const castAllSpells = async () => {
     for (const button of castButtons) {
       actions.automatedClicksPending++
       button.click()
-      await sleep(100)
+      await sleep(200) // Longer delay to ensure each spell casts
     }
 
     // Re-check status
@@ -451,7 +456,7 @@ const dismissAllSpells = async () => {
     await sleep(1000)
 
     // Find all "Dismiss this spell" buttons and click them
-    const allButtons = selectors.getAllButtons(true)
+    const allButtons = Array.from(document.querySelectorAll('button'))
     const dismissButtons = allButtons.filter((btn) => btn.textContent === 'Dismiss this spell')
 
     logger({ msgLevel: 'log', msg: `Assist Mode: Dismissing ${dismissButtons.length} spells` })
@@ -459,7 +464,7 @@ const dismissAllSpells = async () => {
     for (const button of dismissButtons) {
       actions.automatedClicksPending++
       button.click()
-      await sleep(100)
+      await sleep(200) // Longer delay to ensure each spell dismisses
     }
 
     // Re-check status
