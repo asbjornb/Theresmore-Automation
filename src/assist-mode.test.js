@@ -24,11 +24,11 @@ const isBlacklisted = (buildingId) => {
     return true
   }
 
-  // Check if building costs luck (lucky stones)
+  // Check if building costs luck (lucky stones) or light
   const buildingData = buildings.find((b) => b.id === buildingId)
   if (buildingData && buildingData.req) {
-    const costsLuck = buildingData.req.some((req) => req.type === 'resource' && req.id === 'luck')
-    if (costsLuck) {
+    const costsLuckOrLight = buildingData.req.some((req) => req.type === 'resource' && (req.id === 'luck' || req.id === 'light'))
+    if (costsLuckOrLight) {
       return true
     }
   }
@@ -104,6 +104,23 @@ if (true) {
   console.log(`Found ${buildingsWithLuck.length} buildings that cost luck:`)
   let allPassed = true
   buildingsWithLuck.forEach((building) => {
+    const blacklisted = isBlacklisted(building.id)
+    if (blacklisted) {
+      console.log(`  ✅ ${building.id} - correctly blacklisted`)
+    } else {
+      console.log(`  ❌ ${building.id} - NOT blacklisted (BUG!)`)
+      allPassed = false
+    }
+  })
+
+  // Test 1b: Light buildings
+  console.log('\nTEST: Buildings that cost light should be blacklisted')
+  const buildingsWithLight = buildings.filter((building) => {
+    return building.req?.some((req) => req.type === 'resource' && req.id === 'light')
+  })
+
+  console.log(`Found ${buildingsWithLight.length} buildings that cost light:`)
+  buildingsWithLight.forEach((building) => {
     const blacklisted = isBlacklisted(building.id)
     if (blacklisted) {
       console.log(`  ✅ ${building.id} - correctly blacklisted`)
@@ -228,6 +245,77 @@ if (true) {
       console.log('  ❌ With -2.0 food/s: should block housing but allow farms (BUG!)')
       allPassed = false
     }
+  }
+
+  // Test 5: Subpage selection logic
+  console.log('\nTEST: Smart subpage selection should minimize navigation')
+
+  // Mock the subpage selection function
+  const selectSubpageToCheck = (candidateSubpages, recentlyFailedSubpages) => {
+    // Filter out recently failed subpages
+    const viableSubpages = candidateSubpages.filter((sp) => !recentlyFailedSubpages.includes(sp))
+
+    // If all subpages failed recently, reset and try all again
+    if (viableSubpages.length === 0) {
+      return candidateSubpages[Math.floor(Math.random() * candidateSubpages.length)]
+    }
+
+    // Pick random from viable options
+    return viableSubpages[Math.floor(Math.random() * viableSubpages.length)]
+  }
+
+  // Scenario 1: 3 subpages available, none failed - should pick any
+  const scenario1 = selectSubpageToCheck(['City', 'Colony', 'Abyss'], [])
+  if (['City', 'Colony', 'Abyss'].includes(scenario1)) {
+    console.log(`  ✅ 3 available, 0 failed: picked ${scenario1}`)
+  } else {
+    console.log(`  ❌ 3 available, 0 failed: invalid pick ${scenario1} (BUG!)`)
+    allPassed = false
+  }
+
+  // Scenario 2: 3 subpages available, 1 failed - should avoid failed
+  const scenario2 = selectSubpageToCheck(['City', 'Colony', 'Abyss'], ['City'])
+  if (['Colony', 'Abyss'].includes(scenario2)) {
+    console.log(`  ✅ 3 available, 1 failed (City): picked ${scenario2} (avoiding City)`)
+  } else {
+    console.log(`  ❌ 3 available, 1 failed (City): picked ${scenario2}, should avoid City (BUG!)`)
+    allPassed = false
+  }
+
+  // Scenario 3: 3 subpages available, 2 failed - should pick only remaining
+  const scenario3 = selectSubpageToCheck(['City', 'Colony', 'Abyss'], ['City', 'Abyss'])
+  if (scenario3 === 'Colony') {
+    console.log(`  ✅ 3 available, 2 failed (City, Abyss): picked ${scenario3} (only option)`)
+  } else {
+    console.log(`  ❌ 3 available, 2 failed (City, Abyss): picked ${scenario3}, should pick Colony (BUG!)`)
+    allPassed = false
+  }
+
+  // Scenario 4: 3 subpages available, all 3 failed - should reset and try any
+  const scenario4 = selectSubpageToCheck(['City', 'Colony', 'Abyss'], ['City', 'Colony', 'Abyss'])
+  if (['City', 'Colony', 'Abyss'].includes(scenario4)) {
+    console.log(`  ✅ 3 available, all failed: picked ${scenario4} (reset, trying again)`)
+  } else {
+    console.log(`  ❌ 3 available, all failed: invalid pick ${scenario4} (BUG!)`)
+    allPassed = false
+  }
+
+  // Scenario 5: 2 subpages available, 1 failed - should pick remaining
+  const scenario5 = selectSubpageToCheck(['City', 'Colony'], ['Colony'])
+  if (scenario5 === 'City') {
+    console.log(`  ✅ 2 available, 1 failed (Colony): picked ${scenario5} (only option)`)
+  } else {
+    console.log(`  ❌ 2 available, 1 failed (Colony): picked ${scenario5}, should pick City (BUG!)`)
+    allPassed = false
+  }
+
+  // Scenario 6: 1 subpage available - should pick that one
+  const scenario6 = selectSubpageToCheck(['Abyss'], [])
+  if (scenario6 === 'Abyss') {
+    console.log(`  ✅ 1 available, 0 failed: picked ${scenario6} (only option)`)
+  } else {
+    console.log(`  ❌ 1 available, 0 failed: picked ${scenario6}, should pick Abyss (BUG!)`)
+    allPassed = false
   }
 
   console.log('\n' + (allPassed ? '✅ ALL TESTS PASSED' : '❌ SOME TESTS FAILED'))

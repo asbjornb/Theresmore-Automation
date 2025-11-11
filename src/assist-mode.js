@@ -33,6 +33,7 @@ const UNSAFE_RESEARCH = [
 // Cooldown timings and tracking
 let lastBuildAction = 0
 let lastMagicCheckAction = 0 // Shared timer for research + prayers
+let recentlyFailedSubpages = [] // Track subpages where we couldn't find affordable buildings
 
 const BUILD_COOLDOWN = 5000 // 5 seconds between builds
 const MAGIC_CHECK_COOLDOWN = 120000 // 2 minutes between research/prayer checks
@@ -429,6 +430,20 @@ const tryPrayerAtCap = async () => {
   })
 }
 
+// Helper: Select which subpage to check, avoiding recently failed ones
+const selectSubpageToCheck = (candidateSubpages, failedSubpages) => {
+  // Filter out recently failed subpages
+  const viableSubpages = candidateSubpages.filter((sp) => !failedSubpages.includes(sp))
+
+  // If all subpages failed recently, reset and try all again
+  if (viableSubpages.length === 0) {
+    return candidateSubpages[Math.floor(Math.random() * candidateSubpages.length)]
+  }
+
+  // Pick random from viable options
+  return viableSubpages[Math.floor(Math.random() * viableSubpages.length)]
+}
+
 // Try to build something to spend capped resources
 const tryBuildAtCap = async () => {
   const cappedResources = getResourcesAtCap()
@@ -452,72 +467,97 @@ const tryBuildAtCap = async () => {
     await sleep(1000)
   }
 
-  // Check both City and Colony subpages for available buildings
-  const subpagesToCheck = [CONSTANTS.SUBPAGES.CITY, CONSTANTS.SUBPAGES.COLONY]
-  const allAvailableBuildings = []
+  // Determine which subpages have buildings that consume capped resources (no navigation needed)
+  const allSubpages = [CONSTANTS.SUBPAGES.CITY, CONSTANTS.SUBPAGES.COLONY, CONSTANTS.SUBPAGES.ABYSS]
+  const candidateSubpages = []
 
-  for (const subpage of subpagesToCheck) {
-    // Navigate to the subpage
-    logger({ msgLevel: 'debug', msg: `Assist Mode: Checking ${subpage} subpage for buildings` })
-    actions.automatedClicksPending++ // switchSubPage will click
-    await navigation.switchSubPage(subpage, CONSTANTS.PAGES.BUILD)
-    await sleep(1000)
-
-    // Get all buildable buttons on this subpage
-    const buttons = selectors.getAllButtons(false)
-
-    // Try to find buildings we can build for each capped resource
+  for (const subpage of allSubpages) {
+    // Check if any buildings on this subpage could consume capped resources
     for (const resource of cappedResources) {
       const buildingsForResource = getBuildingsThatConsume(resource.id)
 
-      if (buildingsForResource.length === 0) {
-        continue
+      // Check if any of these buildings are on this subpage (based on tab in building data)
+      const subpageIndex = CONSTANTS.SUBPAGES_INDEX[subpage]
+      const hasBuildings = buildingsForResource.some((b) => b.tab === subpageIndex)
+
+      if (hasBuildings) {
+        candidateSubpages.push(subpage)
+        break // This subpage is a candidate, no need to check other resources
       }
-
-      // Filter to only buildings that have available buttons on this subpage
-      const availableBuildings = buildingsForResource.filter((building) => {
-        const buildingKey = keyGen.building.key(building.id)
-        return buttons.some((btn) => {
-          const id = reactUtil.getNearestKey(btn, 6)
-          return id === buildingKey && !btn.classList.toString().includes('btn-off')
-        })
-      })
-
-      // Add to our collection with metadata
-      availableBuildings.forEach((building) => {
-        allAvailableBuildings.push({
-          building,
-          resource,
-          subpage,
-          key: keyGen.building.key(building.id),
-        })
-      })
     }
   }
 
-  // Log what we found
-  if (allAvailableBuildings.length === 0) {
-    logger({ msgLevel: 'debug', msg: 'Assist Mode: No safe/affordable buildings found on any subpage' })
-    return { built: false, reason: 'no_safe_buildings' }
+  if (candidateSubpages.length === 0) {
+    logger({ msgLevel: 'debug', msg: 'Assist Mode: No subpages have buildings for capped resources' })
+    return { built: false, reason: 'no_candidate_subpages' }
+  }
+
+  // Select which subpage to check, avoiding recently failed ones
+  const selectedSubpage = selectSubpageToCheck(candidateSubpages, recentlyFailedSubpages)
+
+  logger({
+    msgLevel: 'debug',
+    msg: `Assist Mode: Checking ${selectedSubpage} for buildings (candidates: ${candidateSubpages.join(', ')}, failed: ${recentlyFailedSubpages.join(', ') || 'none'})`,
+  })
+
+  // Navigate to the selected subpage (only 1 navigation!)
+  actions.automatedClicksPending++ // switchSubPage will click
+  await navigation.switchSubPage(selectedSubpage, CONSTANTS.PAGES.BUILD)
+  await sleep(1000)
+
+  // Get all buildable buttons on this subpage
+  const buttons = selectors.getAllButtons(false)
+  const availableBuildings = []
+
+  // Find buildings we can build for each capped resource
+  for (const resource of cappedResources) {
+    const buildingsForResource = getBuildingsThatConsume(resource.id)
+
+    // Filter to only buildings that have available buttons on this subpage
+    const affordableBuildings = buildingsForResource.filter((building) => {
+      const buildingKey = keyGen.building.key(building.id)
+      return buttons.some((btn) => {
+        const id = reactUtil.getNearestKey(btn, 6)
+        return id === buildingKey && !btn.classList.toString().includes('btn-off')
+      })
+    })
+
+    // Add to our collection with metadata
+    affordableBuildings.forEach((building) => {
+      availableBuildings.push({
+        building,
+        resource,
+        subpage: selectedSubpage,
+        key: keyGen.building.key(building.id),
+      })
+    })
+  }
+
+  // If nothing affordable on this subpage, mark it as failed and try again next cycle
+  if (availableBuildings.length === 0) {
+    logger({ msgLevel: 'debug', msg: `Assist Mode: No affordable buildings on ${selectedSubpage}` })
+
+    // Add to failed list (keep max 2 entries to prevent cycling through all failed pages)
+    if (!recentlyFailedSubpages.includes(selectedSubpage)) {
+      recentlyFailedSubpages.push(selectedSubpage)
+      if (recentlyFailedSubpages.length > 2) {
+        recentlyFailedSubpages.shift() // Remove oldest
+      }
+    }
+
+    return { built: false, reason: 'no_affordable_buildings', subpage: selectedSubpage }
   }
 
   logger({
     msgLevel: 'debug',
-    msg: `Assist Mode: Found ${allAvailableBuildings.length} available buildings across all subpages: ${allAvailableBuildings.map((b) => b.building.id).join(', ')}`,
+    msg: `Assist Mode: Found ${availableBuildings.length} affordable buildings on ${selectedSubpage}: ${availableBuildings.map((b) => b.building.id).join(', ')}`,
   })
 
-  // Randomly select one building from all available options
-  const randomIndex = Math.floor(Math.random() * allAvailableBuildings.length)
-  const selected = allAvailableBuildings[randomIndex]
+  // Randomly select one building from available options
+  const randomIndex = Math.floor(Math.random() * availableBuildings.length)
+  const selected = availableBuildings[randomIndex]
 
-  // Navigate to the correct subpage for this building
-  logger({ msgLevel: 'debug', msg: `Assist Mode: Navigating to ${selected.subpage} to build ${selected.building.id}` })
-  actions.automatedClicksPending++ // switchSubPage will click
-  await navigation.switchSubPage(selected.subpage, CONSTANTS.PAGES.BUILD)
-  await sleep(1000)
-
-  // Get buttons on the correct subpage and find our building
-  const buttons = selectors.getAllButtons(false)
+  // Find and click the button
   const button = buttons.find((btn) => {
     const id = reactUtil.getNearestKey(btn, 6)
     return id === selected.key && !btn.classList.toString().includes('btn-off')
@@ -533,6 +573,8 @@ const tryBuildAtCap = async () => {
     await actions.click(button)
 
     lastBuildAction = Date.now()
+    // Reset failed subpages on success
+    recentlyFailedSubpages = []
     await sleep(500)
     return { built: true, building: selected.building.id, resource: selected.resource.id, subpage: selected.subpage }
   }
