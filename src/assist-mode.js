@@ -364,14 +364,14 @@ const checkSpellStatus = async () => {
       logger({ msgLevel: 'debug', msg: 'Assist Mode: Navigating to Magic page for spell check' })
       actions.automatedClicksPending++
       await navigation.switchPage(CONSTANTS.PAGES.MAGIC)
-      await sleep(1000)
+      await sleep(500)
     }
 
     // Navigate to Spells subpage
     logger({ msgLevel: 'debug', msg: 'Assist Mode: Navigating to Spells subpage' })
     actions.automatedClicksPending++
     await navigation.switchSubPage(CONSTANTS.SUBPAGES.SPELLS, CONSTANTS.PAGES.MAGIC)
-    await sleep(1000)
+    await sleep(500)
 
     // Count cast and dismiss buttons - use direct query to get all buttons
     const allButtons = Array.from(document.querySelectorAll('button'))
@@ -416,11 +416,11 @@ const castAllSpells = async () => {
     // Navigate to Magic > Spells
     actions.automatedClicksPending++
     await navigation.switchPage(CONSTANTS.PAGES.MAGIC)
-    await sleep(1000)
+    await sleep(500)
 
     actions.automatedClicksPending++
     await navigation.switchSubPage(CONSTANTS.SUBPAGES.SPELLS, CONSTANTS.PAGES.MAGIC)
-    await sleep(1000)
+    await sleep(500)
 
     // Find all "Cast this spell" buttons and click them
     const allButtons = Array.from(document.querySelectorAll('button'))
@@ -450,11 +450,11 @@ const dismissAllSpells = async () => {
     // Navigate to Magic > Spells
     actions.automatedClicksPending++
     await navigation.switchPage(CONSTANTS.PAGES.MAGIC)
-    await sleep(1000)
+    await sleep(500)
 
     actions.automatedClicksPending++
     await navigation.switchSubPage(CONSTANTS.SUBPAGES.SPELLS, CONSTANTS.PAGES.MAGIC)
-    await sleep(1000)
+    await sleep(500)
 
     // Find all "Dismiss this spell" or "Cancel this spell" buttons and click them
     const allButtons = Array.from(document.querySelectorAll('button'))
