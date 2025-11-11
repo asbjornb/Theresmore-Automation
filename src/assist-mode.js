@@ -351,6 +351,125 @@ const tryResearchAtCap = async () => {
   })
 }
 
+// Check spell status (how many are active)
+const checkSpellStatus = async () => {
+  logger({ msgLevel: 'debug', msg: 'Assist Mode: Checking spell status' })
+
+  // Execute all navigation/clicking as automated actions
+  return actions.executeAction(async () => {
+    // Navigate to Magic page if not already there
+    const onMagicPage = navigation.checkPage(CONSTANTS.PAGES.MAGIC)
+
+    if (!onMagicPage) {
+      logger({ msgLevel: 'debug', msg: 'Assist Mode: Navigating to Magic page for spell check' })
+      actions.automatedClicksPending++
+      await navigation.switchPage(CONSTANTS.PAGES.MAGIC)
+      await sleep(1000)
+    }
+
+    // Navigate to Spells subpage
+    logger({ msgLevel: 'debug', msg: 'Assist Mode: Navigating to Spells subpage' })
+    actions.automatedClicksPending++
+    await navigation.switchSubPage(CONSTANTS.SUBPAGES.SPELLS, CONSTANTS.PAGES.MAGIC)
+    await sleep(1000)
+
+    // Count cast and dismiss buttons
+    const allButtons = selectors.getAllButtons(true)
+    const castButtons = allButtons.filter((btn) => btn.textContent === 'Cast this spell')
+    const dismissButtons = allButtons.filter((btn) => btn.textContent === 'Dismiss this spell')
+
+    const totalSpells = castButtons.length + dismissButtons.length
+    const activeSpells = dismissButtons.length
+
+    logger({
+      msgLevel: 'debug',
+      msg: `Assist Mode: Spell status - ${activeSpells}/${totalSpells} active`,
+    })
+
+    // Store in state for panel display
+    state.spellStatus = {
+      active: activeSpells,
+      total: totalSpells,
+      lastChecked: Date.now(),
+    }
+
+    // Navigate back to Build page
+    actions.automatedClicksPending++
+    await navigation.switchPage(CONSTANTS.PAGES.BUILD)
+    await sleep(500)
+
+    return { active: activeSpells, total: totalSpells }
+  })
+}
+
+// Cast all spells (turn all on)
+const castAllSpells = async () => {
+  logger({ msgLevel: 'log', msg: 'Assist Mode: Casting all spells' })
+
+  return actions.executeAction(async () => {
+    // Navigate to Magic > Spells
+    actions.automatedClicksPending++
+    await navigation.switchPage(CONSTANTS.PAGES.MAGIC)
+    await sleep(1000)
+
+    actions.automatedClicksPending++
+    await navigation.switchSubPage(CONSTANTS.SUBPAGES.SPELLS, CONSTANTS.PAGES.MAGIC)
+    await sleep(1000)
+
+    // Find all "Cast this spell" buttons and click them
+    const allButtons = selectors.getAllButtons(true)
+    const castButtons = allButtons.filter((btn) => btn.textContent === 'Cast this spell')
+
+    logger({ msgLevel: 'log', msg: `Assist Mode: Casting ${castButtons.length} spells` })
+
+    for (const button of castButtons) {
+      actions.automatedClicksPending++
+      button.click()
+      await sleep(100)
+    }
+
+    // Re-check status
+    await sleep(500)
+    await checkSpellStatus()
+
+    return { cast: castButtons.length }
+  })
+}
+
+// Dismiss all spells (turn all off)
+const dismissAllSpells = async () => {
+  logger({ msgLevel: 'log', msg: 'Assist Mode: Dismissing all spells' })
+
+  return actions.executeAction(async () => {
+    // Navigate to Magic > Spells
+    actions.automatedClicksPending++
+    await navigation.switchPage(CONSTANTS.PAGES.MAGIC)
+    await sleep(1000)
+
+    actions.automatedClicksPending++
+    await navigation.switchSubPage(CONSTANTS.SUBPAGES.SPELLS, CONSTANTS.PAGES.MAGIC)
+    await sleep(1000)
+
+    // Find all "Dismiss this spell" buttons and click them
+    const allButtons = selectors.getAllButtons(true)
+    const dismissButtons = allButtons.filter((btn) => btn.textContent === 'Dismiss this spell')
+
+    logger({ msgLevel: 'log', msg: `Assist Mode: Dismissing ${dismissButtons.length} spells` })
+
+    for (const button of dismissButtons) {
+      actions.automatedClicksPending++
+      button.click()
+      await sleep(100)
+    }
+
+    // Re-check status
+    await sleep(500)
+    await checkSpellStatus()
+
+    return { dismissed: dismissButtons.length }
+  })
+}
+
 // Try to pray to spend capped resources
 const tryPrayerAtCap = async () => {
   const cappedResources = getResourcesAtCap()
@@ -618,6 +737,14 @@ const assistLoop = async () => {
     // Update cooldown timer once - we only check once per cooldown period
     lastMagicCheckAction = Date.now()
 
+    // Check spell status while we're on the Magic page anyway
+    try {
+      await checkSpellStatus()
+    } catch (e) {
+      logger({ msgLevel: 'error', msg: `Assist Mode spell check error: ${e.message}` })
+      console.error(e)
+    }
+
     // Try research if research resource is capped (if enabled)
     if (researchIsCapped && state.options.assistMode?.research !== false) {
       logger({ msgLevel: 'debug', msg: 'Assist Mode: Research is capped, checking for research opportunities...' })
@@ -697,4 +824,4 @@ const init = () => {
   })
 }
 
-export default { init, getResourcesAtCap }
+export default { init, getResourcesAtCap, castAllSpells, dismissAllSpells, checkSpellStatus }
