@@ -56,11 +56,11 @@ const isBlacklisted = (buildingId) => {
     return true
   }
 
-  // Check if building costs luck (lucky stones)
+  // Check if building costs luck (lucky stones) or light
   const buildingData = buildings.find((b) => b.id === buildingId)
   if (buildingData && buildingData.req) {
-    const costsLuck = buildingData.req.some((req) => req.type === 'resource' && req.id === 'luck')
-    if (costsLuck) {
+    const costsLuckOrLight = buildingData.req.some((req) => req.type === 'resource' && (req.id === 'luck' || req.id === 'light'))
+    if (costsLuckOrLight) {
       return true
     }
   }
@@ -70,6 +70,11 @@ const isBlacklisted = (buildingId) => {
 
 // Check if building has negative non-food production
 const hasNegativeNonFoodProduction = (building) => {
+  // Colony Hall is allowed despite negative gold production
+  if (building.id === 'colony_hall') {
+    return false
+  }
+
   if (!building.gen) return false
 
   return building.gen.some((gen) => {
