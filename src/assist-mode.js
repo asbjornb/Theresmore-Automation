@@ -375,15 +375,16 @@ const checkSpellStatus = async () => {
 
     // Count cast and dismiss buttons - use direct query to get all buttons
     const allButtons = Array.from(document.querySelectorAll('button'))
-    const castButtons = allButtons.filter((btn) => btn.textContent === 'Cast this spell')
-    const dismissButtons = allButtons.filter((btn) => btn.textContent === 'Dismiss this spell')
+    const castButtons = allButtons.filter((btn) => btn.textContent.includes('Cast this spell'))
+    // Check for both "Dismiss this spell" and "Cancel this spell"
+    const dismissButtons = allButtons.filter((btn) => btn.textContent.includes('Dismiss this spell') || btn.textContent.includes('Cancel this spell'))
 
     const totalSpells = castButtons.length + dismissButtons.length
     const activeSpells = dismissButtons.length
 
     logger({
       msgLevel: 'debug',
-      msg: `Assist Mode: Spell button counts - Cast: ${castButtons.length}, Dismiss: ${dismissButtons.length}`,
+      msg: `Assist Mode: Spell button counts - Cast: ${castButtons.length}, Dismiss/Cancel: ${dismissButtons.length}`,
     })
 
     logger({
@@ -423,7 +424,7 @@ const castAllSpells = async () => {
 
     // Find all "Cast this spell" buttons and click them
     const allButtons = Array.from(document.querySelectorAll('button'))
-    const castButtons = allButtons.filter((btn) => btn.textContent === 'Cast this spell')
+    const castButtons = allButtons.filter((btn) => btn.textContent.includes('Cast this spell'))
 
     logger({ msgLevel: 'log', msg: `Assist Mode: Casting ${castButtons.length} spells` })
 
@@ -455,9 +456,9 @@ const dismissAllSpells = async () => {
     await navigation.switchSubPage(CONSTANTS.SUBPAGES.SPELLS, CONSTANTS.PAGES.MAGIC)
     await sleep(1000)
 
-    // Find all "Dismiss this spell" buttons and click them
+    // Find all "Dismiss this spell" or "Cancel this spell" buttons and click them
     const allButtons = Array.from(document.querySelectorAll('button'))
-    const dismissButtons = allButtons.filter((btn) => btn.textContent === 'Dismiss this spell')
+    const dismissButtons = allButtons.filter((btn) => btn.textContent.includes('Dismiss this spell') || btn.textContent.includes('Cancel this spell'))
 
     logger({ msgLevel: 'log', msg: `Assist Mode: Dismissing ${dismissButtons.length} spells` })
 
