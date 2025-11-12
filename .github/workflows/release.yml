@@ -35,6 +35,9 @@ jobs:
         id: package_version
         run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
+      - name: Copy to bundle.user.js for consistent update URL
+        run: cp dist/release-$(node -p "require('./package.json').version").user.js dist/bundle.user.js
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -53,3 +56,4 @@ jobs:
             See commit history for detailed changes.
           files: |
             dist/release-${{ steps.package_version.outputs.VERSION }}.user.js
+            dist/bundle.user.js
