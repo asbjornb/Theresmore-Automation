@@ -597,18 +597,28 @@ const tryBuildAtCap = async () => {
   const candidateSubpages = []
 
   for (const subpage of allSubpages) {
+    // Check if this subpage exists in the game (has been discovered)
+    if (!navigation.hasSubPage(subpage)) continue
+
     // Check if any buildings on this subpage could consume capped resources
+    let hasValidBuildings = false
     for (const resource of cappedResources) {
       const buildingsForResource = getBuildingsThatConsume(resource.id)
 
-      // Check if any of these buildings are on this subpage (based on tab in building data)
+      // Check if any of these buildings are on this subpage
+      // Note: building.tab is 1-indexed (1=City, 2=Colony, 3=Abyss)
+      // while SUBPAGES_INDEX is 0-indexed (City=0, Colony=1, Abyss=2)
       const subpageIndex = CONSTANTS.SUBPAGES_INDEX[subpage]
-      const hasBuildings = buildingsForResource.some((b) => b.tab === subpageIndex)
+      const hasBuildings = buildingsForResource.some((b) => b.tab === subpageIndex + 1)
 
       if (hasBuildings) {
-        candidateSubpages.push(subpage)
+        hasValidBuildings = true
         break // This subpage is a candidate, no need to check other resources
       }
+    }
+
+    if (hasValidBuildings) {
+      candidateSubpages.push(subpage)
     }
   }
 
