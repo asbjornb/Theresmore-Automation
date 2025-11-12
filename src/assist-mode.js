@@ -596,9 +596,24 @@ const tryBuildAtCap = async () => {
   const allSubpages = [CONSTANTS.SUBPAGES.CITY, CONSTANTS.SUBPAGES.COLONY, CONSTANTS.SUBPAGES.ABYSS]
   const candidateSubpages = []
 
+  // Check if subpage tabs exist at all (early game vs mid/late game)
+  const subPageTabs = document.querySelectorAll('div[role="tablist"]')
+  const hasSubPageTabs = subPageTabs.length >= 2
+
+  logger({
+    msgLevel: 'debug',
+    msg: `Assist Mode: ${hasSubPageTabs ? 'Mid/late game (tabs exist)' : 'Early game (no tabs yet, City is default)'}`,
+  })
+
   for (const subpage of allSubpages) {
-    // Check if this subpage exists in the game (has been discovered)
-    if (!navigation.hasSubPage(subpage)) continue
+    // Early game: If no subpage tabs exist, City is the default/only page
+    // Mid/late game: Check if specific subpage has been discovered
+    const isAvailable =
+      !hasSubPageTabs && subpage === CONSTANTS.SUBPAGES.CITY // Early game, City is default
+        ? true
+        : navigation.hasSubPage(subpage) // Mid/late game, check if discovered
+
+    if (!isAvailable) continue
 
     // Check if any buildings on this subpage could consume capped resources
     let hasValidBuildings = false
@@ -619,6 +634,9 @@ const tryBuildAtCap = async () => {
 
     if (hasValidBuildings) {
       candidateSubpages.push(subpage)
+      logger({ msgLevel: 'debug', msg: `Assist Mode: ${subpage} has buildings for capped resources` })
+    } else if (isAvailable) {
+      logger({ msgLevel: 'debug', msg: `Assist Mode: ${subpage} is available but has no buildings for capped resources` })
     }
   }
 
@@ -626,6 +644,11 @@ const tryBuildAtCap = async () => {
     logger({ msgLevel: 'debug', msg: 'Assist Mode: No subpages have buildings for capped resources' })
     return { built: false, reason: 'no_candidate_subpages' }
   }
+
+  logger({
+    msgLevel: 'debug',
+    msg: `Assist Mode: Candidate subpages: ${candidateSubpages.join(', ')}`,
+  })
 
   // Select which subpage to check, avoiding recently failed ones
   const selectedSubpage = selectSubpageToCheck(candidateSubpages, recentlyFailedSubpages)
