@@ -6,3 +6,8 @@ yarn.lock
 todo.md
 *.bak
 dist/release-$npm_package_version.user.js
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/

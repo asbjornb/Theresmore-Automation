@@ -20,7 +20,11 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "node src/assist-mode.test.js",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "node src/assist-mode.test.js",
+    "test:integration": "npm run build && playwright test",
+    "test:integration:ui": "npm run build && playwright test --ui",
+    "test:integration:debug": "npm run build && playwright test --debug",
     "build": "npx rollup --config rollup.config.mjs",
     "watch": "npx rollup --config rollup.config.mjs --watch",
     "serve": "node server.js",
@@ -33,6 +37,7 @@
   "devDependencies": {
     "@babel/cli": "^7.28.0",
     "@babel/core": "^7.28.0",
+    "@playwright/test": "^1.49.0",
     "@rollup/plugin-babel": "^6.0.4",
     "@rollup/plugin-commonjs": "^28.0.6",
     "@rollup/plugin-json": "^6.1.0",
