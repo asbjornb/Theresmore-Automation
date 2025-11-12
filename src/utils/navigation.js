@@ -107,4 +107,4 @@ const switchSubPage = async (subPage, page) => {
   }
 }
 
-export default { getPagesSelector, hasPage, switchPage, checkPage, switchSubPage }
+export default { getPagesSelector, hasPage, hasSubPage, switchPage, checkPage, switchSubPage }
