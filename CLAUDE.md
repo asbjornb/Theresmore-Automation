@@ -1,5 +1,15 @@
 # Development Workflow for Theresmore-Automation
 
+## Important: Fork Relationship
+
+**This is a derivative project, NOT a contributing fork.**
+
+- This repo is based on [Theresmore-Automation/Theresmore-Automation](https://github.com/Theresmore-Automation/Theresmore-Automation)
+- We build on top of their excellent codebase to develop an alternative "Assist Mode" feature
+- **NEVER push to upstream** - this is not meant for contributing back
+- We pull updates from upstream when useful, but maintain our own direction
+- Releases are independent and published from this fork
+
 ## Dev Server Setup (Recommended)
 
 The project includes a dev server that makes testing changes much faster than copy-pasting code into Violentmonkey.
