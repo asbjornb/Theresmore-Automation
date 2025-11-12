@@ -337,18 +337,19 @@ const autoScoutAndFight = async () => {
 let isRunning = false
 const injectButton = () => {
   // Only inject on Army > Attack page
-  const currentPage = document.querySelector('button.btn-gold[disabled]')
-  if (!currentPage || !currentPage.textContent.includes('Army')) return
-
-  const attackTab = [...document.querySelectorAll('button.btn-sm')].find((btn) => btn.textContent.includes('Attack'))
-  if (!attackTab || !attackTab.disabled) return
+  if (!navigation.checkPage(CONSTANTS.PAGES.ARMY, CONSTANTS.SUBPAGES.ATTACK)) {
+    return
+  }
 
   // Check if button already exists
   if (document.querySelector('.taArmyAssistantButton')) return
 
   // Find the container to inject into
   const container = document.querySelector('div.tab-container.sub-container')
-  if (!container) return
+  if (!container) {
+    logger({ msgLevel: 'debug', msg: 'Army Assistant: Could not find container for button injection' })
+    return
+  }
 
   // Create button container
   const buttonContainer = document.createElement('div')
