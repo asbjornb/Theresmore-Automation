@@ -1,6 +1,7 @@
 import { state, reactUtil, localStorage } from '../utils'
 import manageAssistMode from './manageAssistMode'
 import assistMode from '../assist-mode'
+import armyAssistant from '../army-assistant'
 
 const id = 'theresmore-automation'
 let controlPanel
@@ -30,6 +31,13 @@ const createPanel = (switchScriptState) => {
       <div class="flex gap-1">
         <button type="button" class="btn btn-sm btn-green taCastAllSpells">All On</button>
         <button type="button" class="btn btn-sm btn-red taDismissAllSpells">All Off</button>
+      </div>
+    </div>
+    <div class="mb-2">
+      <div class="text-sm mb-1">Army Assistant:</div>
+      <div class="flex gap-1">
+        <button type="button" class="btn btn-sm btn-blue taArmyAssistantStart">▶ Start</button>
+        <button type="button" class="btn btn-sm btn-red taArmyAssistantStop" disabled>⏹ Stop</button>
       </div>
     </div>
   </p>
@@ -75,6 +83,33 @@ const createPanel = (switchScriptState) => {
       dismissButton.disabled = false
       dismissButton.textContent = 'All Off'
     }
+  })
+
+  // Army assistant buttons
+  const startArmyButton = controlPanel.querySelector('.taArmyAssistantStart')
+  const stopArmyButton = controlPanel.querySelector('.taArmyAssistantStop')
+
+  startArmyButton.addEventListener('click', async () => {
+    // Disable start, enable stop
+    startArmyButton.disabled = true
+    stopArmyButton.disabled = false
+    castButton.disabled = true
+    dismissButton.disabled = true
+
+    try {
+      await armyAssistant.autoScoutAndFight()
+    } finally {
+      // Re-enable start, disable stop
+      startArmyButton.disabled = false
+      stopArmyButton.disabled = true
+      castButton.disabled = false
+      dismissButton.disabled = false
+    }
+  })
+
+  stopArmyButton.addEventListener('click', () => {
+    armyAssistant.stop()
+    stopArmyButton.disabled = true
   })
 }
 

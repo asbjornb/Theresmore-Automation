@@ -42,9 +42,9 @@ const stop = () => {
 }
 
 /**
- * Get hired scouting units from army data
+ * Get available (not on mission) scouting units from army data
  */
-const getScoutingUnits = () => {
+const getAvailableScoutingUnits = () => {
   try {
     const run = reactUtil.getGameData().run
     if (!run || !run.army) {
@@ -55,9 +55,11 @@ const getScoutingUnits = () => {
     const explorerUnit = run.army.find((u) => u.id === 'explorer')
     const familiarUnit = run.army.find((u) => u.id === 'familiar')
 
-    const scouts = scoutUnit?.value || 0
-    const explorers = explorerUnit?.value || 0
-    const familiars = familiarUnit?.value || 0
+    // unit.value = total hired, unit.away = currently on mission
+    // available = value - away
+    const scouts = (scoutUnit?.value || 0) - (scoutUnit?.away || 0)
+    const explorers = (explorerUnit?.value || 0) - (explorerUnit?.away || 0)
+    const familiars = (familiarUnit?.value || 0) - (familiarUnit?.away || 0)
 
     return {
       scouts,
@@ -89,6 +91,19 @@ const doScout = async () => {
     return { success: false, reason: 'no_container' }
   }
 
+  // Click "Add all" button to assign all scouts
+  const addAllButton = [...container.querySelectorAll('button')].find((btn) => {
+    const svg = btn.querySelector('svg')
+    return svg && svg.getAttribute('data-icon') === 'angle-double-right'
+  })
+
+  if (addAllButton && !addAllButton.disabled) {
+    logger({ msgLevel: 'debug', msg: 'Army Assistant: Assigning all scouts' })
+    actions.automatedClicksPending++
+    addAllButton.click()
+    await sleep(500)
+  }
+
   // Find and click the blue "Send to Explore" button
   const sendButton = container.querySelector('button.btn-blue:not(.btn-off):not(.btn-off-cap)')
   if (!sendButton) {
@@ -99,7 +114,20 @@ const doScout = async () => {
   logger({ msgLevel: 'log', msg: 'Army Assistant: Sending scouting mission' })
   actions.automatedClicksPending++
   sendButton.click()
-  await sleep(1000)
+
+  // Wait for explore to complete
+  const MainStore = reactUtil.getGameData()
+  if (MainStore?.ArmyStore) {
+    let waitCount = 0
+    while (MainStore.ArmyStore.exploreInProgress && waitCount < 60) {
+      await sleep(500)
+      waitCount++
+      if (shouldStop) break
+    }
+    logger({ msgLevel: 'debug', msg: `Army Assistant: Explore completed in ${waitCount * 0.5}s` })
+  } else {
+    await sleep(5000) // Default wait if we can't access ArmyStore
+  }
 
   return { success: true }
 }
@@ -244,6 +272,19 @@ const doFight = async () => {
     const container = document.querySelector('div.tab-container.sub-container')
     if (!container) return { success: false, reason: 'no_container' }
 
+    // Click "Add all" button to assign all army
+    const addAllButton = [...container.querySelectorAll('button')].find((btn) => {
+      const svg = btn.querySelector('svg')
+      return svg && svg.getAttribute('data-icon') === 'angle-double-right'
+    })
+
+    if (addAllButton && !addAllButton.disabled) {
+      logger({ msgLevel: 'debug', msg: 'Army Assistant: Assigning all army units' })
+      actions.automatedClicksPending++
+      addAllButton.click()
+      await sleep(500)
+    }
+
     const attackButton = [...container.querySelectorAll('button.btn')].find((btn) => reactUtil.getBtnIndex(btn, 0) === 3)
 
     if (!attackButton || attackButton.disabled) {
@@ -253,7 +294,20 @@ const doFight = async () => {
 
     actions.automatedClicksPending++
     attackButton.click()
-    await sleep(2000) // Wait for fight to process
+
+    // Wait for attack to complete
+    const MainStore = reactUtil.getGameData()
+    if (MainStore?.ArmyStore) {
+      let waitCount = 0
+      while (MainStore.ArmyStore.attackInProgress && waitCount < 60) {
+        await sleep(500)
+        waitCount++
+        if (shouldStop) break
+      }
+      logger({ msgLevel: 'debug', msg: `Army Assistant: Attack completed in ${waitCount * 0.5}s` })
+    } else {
+      await sleep(5000) // Default wait if we can't access ArmyStore
+    }
 
     return { success: true, fight: fight.id }
   }
@@ -273,17 +327,17 @@ const autoScoutAndFight = async () => {
     let consecutiveFailures = 0
 
     while (!shouldStop && consecutiveFailures < 3) {
-      // Check scouting units
-      const scoutingUnits = getScoutingUnits()
+      // Check available scouting units (not on mission)
+      const scoutingUnits = getAvailableScoutingUnits()
 
       if (scoutingUnits.total < 10) {
-        logger({ msgLevel: 'log', msg: `Army Assistant: Stopping - only ${scoutingUnits.total} scouting units left` })
+        logger({ msgLevel: 'log', msg: `Army Assistant: Stopping - only ${scoutingUnits.total} scouting units available (not on mission)` })
         break
       }
 
       logger({
         msgLevel: 'debug',
-        msg: `Army Assistant: Scouting units available: ${scoutingUnits.scouts} scouts, ${scoutingUnits.explorers} explorers, ${scoutingUnits.familiars} familiars (total: ${scoutingUnits.total})`,
+        msg: `Army Assistant: Available scouting units: ${scoutingUnits.scouts} scouts, ${scoutingUnits.explorers} explorers, ${scoutingUnits.familiars} familiars (total: ${scoutingUnits.total})`,
       })
 
       // Alternate between scouting and fighting
@@ -340,71 +394,7 @@ const autoScoutAndFight = async () => {
   }
 }
 
-/**
- * Inject the Auto Scout & Fight button into the Army > Attack page
- */
-let isRunning = false
-const injectButton = () => {
-  // Only inject on Army > Attack page
-  if (!navigation.checkPage(CONSTANTS.PAGES.ARMY, CONSTANTS.SUBPAGES.ATTACK)) {
-    return
-  }
-
-  // Check if button already exists
-  if (document.querySelector('.taArmyAssistantButton')) return
-
-  // Find the container to inject into
-  const container = document.querySelector('div.tab-container.sub-container')
-  if (!container) {
-    logger({ msgLevel: 'debug', msg: 'Army Assistant: Could not find container for button injection' })
-    return
-  }
-
-  // Create button container
-  const buttonContainer = document.createElement('div')
-  buttonContainer.className = 'taArmyAssistantButton mb-2'
-  buttonContainer.innerHTML = `
-    <button type="button" class="btn btn-sm btn-blue taArmyAssistantBtn">
-      🗡️ Auto Scout & Fight
-    </button>
-    <div class="text-xs mt-1 text-gray-400" style="font-size: 0.7rem;">
-      Scouts & fights (easiest first, consults oracle)
-    </div>
-  `
-
-  // Insert at top of container
-  container.insertBefore(buttonContainer, container.firstChild)
-
-  // Add click handler
-  const button = buttonContainer.querySelector('.taArmyAssistantBtn')
-  button.addEventListener('click', async () => {
-    if (isRunning) {
-      stop()
-      return
-    }
-
-    isRunning = true
-    button.disabled = true
-    button.textContent = '⏸️ Running...'
-    button.classList.remove('btn-blue')
-    button.classList.add('btn-orange')
-
-    try {
-      await autoScoutAndFight()
-    } finally {
-      isRunning = false
-      button.disabled = false
-      button.textContent = '🗡️ Auto Scout & Fight'
-      button.classList.remove('btn-orange')
-      button.classList.add('btn-blue')
-    }
-  })
-
-  logger({ msgLevel: 'debug', msg: 'Army Assistant: Button injected into Attack page' })
-}
-
 export default {
   autoScoutAndFight,
   stop,
-  injectButton,
 }
