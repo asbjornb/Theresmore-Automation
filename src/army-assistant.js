@@ -20,14 +20,14 @@ import actions from './assist-mode-actions'
 // - kobold_city → King Kobold Nation attacks
 // - orcish_prison_camp → Orc Horde attacks
 // - huge_cave → Nikharul attacks (mindless evil)
+// - dark_knight_patrol → Dark Knight incoming attacks (late game Abyss)
 // Player must be strategically prepared for sustained conflict!
 const FIGHT_BLACKLIST = [
   'barbarian_village', // Unlocks Barbarian Horde incoming attacks
   'kobold_city', // Unlocks King Kobold Nation incoming attacks
   'orcish_prison_camp', // Unlocks Orc Horde incoming attacks
   'huge_cave', // Unlocks Nikharul incoming attacks
-  // TODO: Add 2 more late-game Abyss fights that trigger faction attacks
-  // (Unknown names - need to identify these before players use assistant in Abyss)
+  'dark_knight_patrol', // Unlocks Dark Knight incoming attacks (late game Abyss)
 ]
 
 // Stop flag

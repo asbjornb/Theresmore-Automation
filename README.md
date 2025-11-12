@@ -69,11 +69,9 @@ Some fights trigger **permanent incoming faction attacks** and are automatically
 - **kobold_city** → Triggers King Kobold Nation attacks
 - **orcish_prison_camp** → Triggers Orc Horde attacks
 - **huge_cave** → Triggers Nikharul attacks
+- **dark_knight_patrol** → Triggers Dark Knight attacks
 
 These are strategic decisions - the assistant will never auto-fight them. You can still manually fight these when you're ready for sustained conflict!
-
-**Note**: There are 2 more late-game Abyss fights with similar effects (names unknown). Avoid using the assistant in Abyss until these are identified and
-blacklisted.
 
 ---
 
