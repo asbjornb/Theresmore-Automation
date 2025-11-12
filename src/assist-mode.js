@@ -293,6 +293,31 @@ const tryResearchAtCap = async () => {
     msg: `Assist Mode: Checking research for capped resources: ${cappedResourceIds.join(', ')}`,
   })
 
+  // Calculate how many research items to unlock based on production rate
+  let researchToUnlock = 1 // default
+  if (cappedResourceIds.includes('research')) {
+    const researchData = resources.get('research')
+    const researchSpeed = researchData?.speed || 0
+    const researchIn2Minutes = researchSpeed * (MAGIC_CHECK_COOLDOWN / 1000)
+
+    // Find cheapest affordable research cost
+    const affordableResearch = getResearchThatConsumes(cappedResourceIds)
+    const researchCosts = affordableResearch
+      .map((r) => r.req.find((req) => req.type === 'resource' && req.id === 'research')?.value || 0)
+      .filter((cost) => cost > 0)
+
+    if (researchCosts.length > 0 && researchSpeed > 0) {
+      const cheapestResearchCost = Math.min(...researchCosts)
+      const researchWorthOfProduction = researchIn2Minutes / cheapestResearchCost
+      researchToUnlock = Math.max(1, Math.ceil(researchWorthOfProduction))
+
+      logger({
+        msgLevel: 'debug',
+        msg: `Assist Mode: Research production = ${researchSpeed}/s, in 2min = ${Math.round(researchIn2Minutes)}, cheapest research = ${cheapestResearchCost}, will unlock ${researchToUnlock} research`,
+      })
+    }
+  }
+
   // Execute all navigation/clicking as automated actions
   return actions.executeAction(async () => {
     // Navigate to Research page if not already there
@@ -311,7 +336,12 @@ const tryResearchAtCap = async () => {
     // Find research that uses capped resources
     const researchOptions = getResearchThatConsumes(cappedResourceIds)
 
+    let researchCompleted = 0
+    const completedResearch = []
+
     for (const research of researchOptions) {
+      if (researchCompleted >= researchToUnlock) break
+
       const researchKey = keyGen.research.key(research.id)
 
       // Find the button for this research
@@ -326,19 +356,15 @@ const tryResearchAtCap = async () => {
 
         logger({
           msgLevel: 'log',
-          msg: `Assist Mode: Researching ${research.id} to spend ${usedResource.id}`,
+          msg: `Assist Mode: Researching ${research.id} to spend ${usedResource.id} (${researchCompleted + 1}/${researchToUnlock})`,
         })
 
         actions.automatedClicksPending++
         button.click()
         await sleep(500)
 
-        // Navigate back to Build page
-        actions.automatedClicksPending++ // switchPage will click a tab
-        await navigation.switchPage(CONSTANTS.PAGES.BUILD)
-        await sleep(500)
-
-        return { researched: true, research: research.id, resource: usedResource.id }
+        researchCompleted++
+        completedResearch.push(research.id)
       }
     }
 
@@ -346,6 +372,10 @@ const tryResearchAtCap = async () => {
     actions.automatedClicksPending++ // switchPage will click a tab
     await navigation.switchPage(CONSTANTS.PAGES.BUILD)
     await sleep(500)
+
+    if (researchCompleted > 0) {
+      return { researched: true, count: researchCompleted, research: completedResearch }
+    }
 
     return { researched: false, reason: 'no_affordable_research' }
   })
@@ -491,6 +521,29 @@ const tryPrayerAtCap = async () => {
     msg: `Assist Mode: Checking prayers for capped resources: ${cappedResourceIds.join(', ')}`,
   })
 
+  // Calculate how many prayers to unlock based on production rate
+  let prayersToUnlock = 1 // default
+  if (cappedResourceIds.includes('faith')) {
+    const faithData = resources.get('faith')
+    const faithSpeed = faithData?.speed || 0
+    const faithIn2Minutes = faithSpeed * (MAGIC_CHECK_COOLDOWN / 1000)
+
+    // Find cheapest affordable prayer cost
+    const affordablePrayers = getPrayersThatConsume(cappedResourceIds)
+    const prayerCosts = affordablePrayers.map((p) => p.req.find((r) => r.type === 'resource' && r.id === 'faith')?.value || 0).filter((cost) => cost > 0)
+
+    if (prayerCosts.length > 0 && faithSpeed > 0) {
+      const cheapestPrayerCost = Math.min(...prayerCosts)
+      const prayersWorthOfProduction = faithIn2Minutes / cheapestPrayerCost
+      prayersToUnlock = Math.max(1, Math.ceil(prayersWorthOfProduction))
+
+      logger({
+        msgLevel: 'debug',
+        msg: `Assist Mode: Faith production = ${faithSpeed}/s, in 2min = ${Math.round(faithIn2Minutes)}, cheapest prayer = ${cheapestPrayerCost}, will unlock ${prayersToUnlock} prayers`,
+      })
+    }
+  }
+
   // Execute all navigation/clicking as automated actions
   return actions.executeAction(async () => {
     // Navigate to Magic page if not already there
@@ -515,7 +568,12 @@ const tryPrayerAtCap = async () => {
     // Find prayers that use capped resources
     const prayerOptions = getPrayersThatConsume(cappedResourceIds)
 
+    let prayersUnlocked = 0
+    const unlockedPrayers = []
+
     for (const prayer of prayerOptions) {
+      if (prayersUnlocked >= prayersToUnlock) break
+
       const prayerKey = keyGen.magic.key(prayer.id)
 
       // Find the button for this prayer
@@ -530,19 +588,15 @@ const tryPrayerAtCap = async () => {
 
         logger({
           msgLevel: 'log',
-          msg: `Assist Mode: Praying ${prayer.id} to spend ${usedResource.id}`,
+          msg: `Assist Mode: Praying ${prayer.id} to spend ${usedResource.id} (${prayersUnlocked + 1}/${prayersToUnlock})`,
         })
 
         actions.automatedClicksPending++
         button.click()
         await sleep(500)
 
-        // Navigate back to Build page
-        actions.automatedClicksPending++ // switchPage will click a tab
-        await navigation.switchPage(CONSTANTS.PAGES.BUILD)
-        await sleep(500)
-
-        return { prayed: true, prayer: prayer.id, resource: usedResource.id }
+        prayersUnlocked++
+        unlockedPrayers.push(prayer.id)
       }
     }
 
@@ -550,6 +604,10 @@ const tryPrayerAtCap = async () => {
     actions.automatedClicksPending++ // switchPage will click a tab
     await navigation.switchPage(CONSTANTS.PAGES.BUILD)
     await sleep(500)
+
+    if (prayersUnlocked > 0) {
+      return { prayed: true, count: prayersUnlocked, prayers: unlockedPrayers }
+    }
 
     return { prayed: false, reason: 'no_affordable_prayers' }
   })
@@ -711,34 +769,79 @@ const tryBuildAtCap = async () => {
     msg: `Assist Mode: Found ${availableBuildings.length} affordable buildings on ${selectedSubpage}: ${availableBuildings.map((b) => b.building.id).join(', ')}`,
   })
 
-  // Randomly select one building from available options
-  const randomIndex = Math.floor(Math.random() * availableBuildings.length)
-  const selected = availableBuildings[randomIndex]
+  // Track which resources have been addressed by buildings
+  const addressedResources = new Set()
+  const builtBuildings = []
 
-  // Find and click the button
-  const button = buttons.find((btn) => {
-    const id = reactUtil.getNearestKey(btn, 6)
-    return id === selected.key && !btn.classList.toString().includes('btn-off')
-  })
+  // Keep building until all capped resources are addressed
+  while (addressedResources.size < cappedResources.length) {
+    // Filter to buildings that address resources we haven't handled yet
+    const remainingBuildings = availableBuildings.filter((b) => !addressedResources.has(b.resource.id))
 
-  if (button) {
+    if (remainingBuildings.length === 0) {
+      logger({
+        msgLevel: 'debug',
+        msg: `Assist Mode: No more buildings to address remaining capped resources`,
+      })
+      break
+    }
+
+    // Randomly select from remaining options
+    const randomIndex = Math.floor(Math.random() * remainingBuildings.length)
+    const selected = remainingBuildings[randomIndex]
+
+    // Find and click the button
+    const button = buttons.find((btn) => {
+      const id = reactUtil.getNearestKey(btn, 6)
+      return id === selected.key && !btn.classList.toString().includes('btn-off')
+    })
+
+    if (!button) {
+      logger({ msgLevel: 'debug', msg: `Assist Mode: Button for ${selected.building.id} disappeared, trying next` })
+      // Remove from available list and try another
+      const index = availableBuildings.indexOf(selected)
+      if (index > -1) availableBuildings.splice(index, 1)
+      continue
+    }
+
     logger({
       msgLevel: 'log',
-      msg: `Assist Mode: Building ${selected.building.id} on ${selected.subpage} to spend ${selected.resource.id} (${Math.round(selected.resource.percentage * 100)}% full)`,
+      msg: `Assist Mode: Building ${selected.building.id} on ${selected.subpage} to spend ${selected.resource.id} (${Math.round(selected.resource.percentage * 100)}% full) [${builtBuildings.length + 1}]`,
     })
 
     // Click using actions wrapper to prevent resetting idle timer
     await actions.click(button)
+    await sleep(500)
 
+    builtBuildings.push(selected.building.id)
+
+    // Mark all resources this building consumes as addressed
+    if (selected.building.req) {
+      selected.building.req
+        .filter((r) => r.type === 'resource')
+        .forEach((r) => {
+          addressedResources.add(r.id)
+        })
+    }
+
+    // Also mark the primary resource we were targeting
+    addressedResources.add(selected.resource.id)
+
+    logger({
+      msgLevel: 'debug',
+      msg: `Assist Mode: Addressed resources: ${Array.from(addressedResources).join(', ')} (${addressedResources.size}/${cappedResources.length})`,
+    })
+  }
+
+  if (builtBuildings.length > 0) {
     lastBuildAction = Date.now()
     // Reset failed subpages on success
     recentlyFailedSubpages = []
-    await sleep(500)
-    return { built: true, building: selected.building.id, resource: selected.resource.id, subpage: selected.subpage }
+    return { built: true, count: builtBuildings.length, buildings: builtBuildings, subpage: selectedSubpage }
   }
 
-  logger({ msgLevel: 'error', msg: 'Assist Mode: Button disappeared before clicking' })
-  return { built: false, reason: 'button_disappeared' }
+  logger({ msgLevel: 'error', msg: 'Assist Mode: Could not build any buildings' })
+  return { built: false, reason: 'no_buildings_built' }
 }
 
 // Main assist mode loop
