@@ -39,6 +39,42 @@ Assist Mode is a gentle helper that only acts when you're idle and resources are
 
 **This mode is perfect for playing with friends without feeling like you're "cheating" - you're still making all the strategic decisions!**
 
+### Army Assistant (Manual Helper)
+
+**Active helper button for scouting and fighting - removes tedium while preserving strategy.**
+
+A "Auto Scout & Fight" button appears in the control panel that automates the repetitive clicking of war actions:
+
+#### How It Works
+
+1. **Player Sets Up**: You hire scouts and fill your army (strategic decisions are yours)
+2. **Click Button**: Press "Auto Scout & Fight" to start
+3. **Automatic Execution**:
+   - Sends scouting missions until <10 scouting units remain
+   - Picks easiest fight first (counts skull icons)
+   - Consults oracle before each battle
+   - Only fights if oracle says winnable
+   - Alternates scouting/fighting for efficiency (actions are on cooldowns)
+4. **Smart Stops**: Automatically stops when:
+   - <10 scouting units left
+   - Encounters unwinnable fight
+   - Out of resources (gold, food, etc.)
+   - Encounters blacklisted fight (see below)
+
+#### ⚠️ Fight Blacklist - IMPORTANT
+
+Some fights trigger **permanent incoming faction attacks** and are automatically skipped:
+
+- **barbarian_village** → Triggers Barbarian Horde attacks
+- **kobold_city** → Triggers King Kobold Nation attacks
+- **orcish_prison_camp** → Triggers Orc Horde attacks
+- **huge_cave** → Triggers Nikharul attacks
+
+These are strategic decisions - the assistant will never auto-fight them. You can still manually fight these when you're ready for sustained conflict!
+
+**Note**: There are 2 more late-game Abyss fights with similar effects (names unknown). Avoid using the assistant in Abyss until these are identified and
+blacklisted.
+
 ---
 
 ## Installation

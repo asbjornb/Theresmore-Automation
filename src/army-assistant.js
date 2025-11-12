@@ -13,13 +13,21 @@ import { units, factions, locations } from './data'
 import { CONSTANTS, navigation, logger, sleep, state, reactUtil, keyGen, resources, selectors } from './utils'
 import actions from './assist-mode-actions'
 
-// Fights to never auto-attack (dangerous or triggered by research)
+// Fights to never auto-attack (trigger ongoing faction attacks)
+// IMPORTANT: These fights unlock PERMANENT incoming attacks from factions
+// Once fought, the player will face repeated attacks from:
+// - barbarian_village → Barbarian Horde attacks
+// - kobold_city → King Kobold Nation attacks
+// - orcish_prison_camp → Orc Horde attacks
+// - huge_cave → Nikharul attacks (mindless evil)
+// Player must be strategically prepared for sustained conflict!
 const FIGHT_BLACKLIST = [
-  'barbarian_village', // Dangerous early fight, triggered by barbarian_tribes research
-  'kobold_city', // Dangerous fight, triggered by kobold_nation research
-  'orcish_prison_camp', // Dangerous fight, triggered by orcish_threat research
-  'huge_cave', // Very dangerous fight, triggered by huge_cave_t research
-  // Add more late-game dangerous fights as discovered
+  'barbarian_village', // Unlocks Barbarian Horde incoming attacks
+  'kobold_city', // Unlocks King Kobold Nation incoming attacks
+  'orcish_prison_camp', // Unlocks Orc Horde incoming attacks
+  'huge_cave', // Unlocks Nikharul incoming attacks
+  // TODO: Add 2 more late-game Abyss fights that trigger faction attacks
+  // (Unknown names - need to identify these before players use assistant in Abyss)
 ]
 
 // Stop flag
