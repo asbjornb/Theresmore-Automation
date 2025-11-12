@@ -43,12 +43,12 @@ Assist Mode is a gentle helper that only acts when you're idle and resources are
 
 **Active helper button for scouting and fighting - removes tedium while preserving strategy.**
 
-A "Auto Scout & Fight" button appears in the control panel that automates the repetitive clicking of war actions:
+A "🗡️ Auto Scout & Fight" button appears on the **Army > Attack** page that automates the repetitive clicking of war actions:
 
 #### How It Works
 
-1. **Player Sets Up**: You hire scouts and fill your army (strategic decisions are yours)
-2. **Click Button**: Press "Auto Scout & Fight" to start
+1. **Player Sets Up**: Navigate to Army page, hire scouts and fill your army (strategic decisions are yours)
+2. **Click Button**: Go to the Attack tab and press "🗡️ Auto Scout & Fight" at the top of the page
 3. **Automatic Execution**:
    - Sends scouting missions until <10 scouting units remain
    - Picks easiest fight first (counts skull icons)

@@ -32,9 +32,6 @@ const createPanel = (switchScriptState) => {
         <button type="button" class="btn btn-sm btn-red taDismissAllSpells">All Off</button>
       </div>
     </div>
-    <div class="mb-2">
-      <button type="button" class="btn btn-sm btn-purple taArmyAssistant">Auto Scout & Fight</button>
-    </div>
   </p>
   `
   document.querySelector('div#root').insertAdjacentElement('afterend', controlPanelElement)
@@ -77,27 +74,6 @@ const createPanel = (switchScriptState) => {
       castButton.disabled = false
       dismissButton.disabled = false
       dismissButton.textContent = 'All Off'
-    }
-  })
-
-  // Army assistant button
-  const armyButton = controlPanel.querySelector('.taArmyAssistant')
-
-  armyButton.addEventListener('click', async () => {
-    // Disable button and update text
-    armyButton.disabled = true
-    armyButton.textContent = 'Running...'
-    armyButton.classList.remove('btn-purple')
-    armyButton.classList.add('btn-orange')
-
-    try {
-      await assistMode.autoScoutAndFight()
-    } finally {
-      // Re-enable button
-      armyButton.disabled = false
-      armyButton.textContent = 'Auto Scout & Fight'
-      armyButton.classList.remove('btn-orange')
-      armyButton.classList.add('btn-purple')
     }
   })
 }

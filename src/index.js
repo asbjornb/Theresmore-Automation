@@ -2,6 +2,7 @@ import { sleep, logger, localStorage, state, runMigrations, armyCalculator, CONS
 import pages from './pages'
 import tasks from './tasks'
 import assistMode from './assist-mode'
+import armyAssistant from './army-assistant'
 
 let mainLoopRunning = false
 let hideFullPageOverlayInterval
@@ -111,6 +112,7 @@ const init = async () => {
   setInterval(tasks.calculateTippyTTF, 100)
   setInterval(tasks.addArmyButtons, 100)
   setInterval(tasks.updateStats, 100)
+  setInterval(armyAssistant.injectButton, 500) // Inject army assistant button on Attack page
 
   // Initialize Assist Mode
   assistMode.init()

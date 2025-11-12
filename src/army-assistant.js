@@ -331,7 +331,70 @@ const autoScoutAndFight = async () => {
   }
 }
 
+/**
+ * Inject the Auto Scout & Fight button into the Army > Attack page
+ */
+let isRunning = false
+const injectButton = () => {
+  // Only inject on Army > Attack page
+  const currentPage = document.querySelector('button.btn-gold[disabled]')
+  if (!currentPage || !currentPage.textContent.includes('Army')) return
+
+  const attackTab = [...document.querySelectorAll('button.btn-sm')].find((btn) => btn.textContent.includes('Attack'))
+  if (!attackTab || !attackTab.disabled) return
+
+  // Check if button already exists
+  if (document.querySelector('.taArmyAssistantButton')) return
+
+  // Find the container to inject into
+  const container = document.querySelector('div.tab-container.sub-container')
+  if (!container) return
+
+  // Create button container
+  const buttonContainer = document.createElement('div')
+  buttonContainer.className = 'taArmyAssistantButton mb-2 mt-2'
+  buttonContainer.innerHTML = `
+    <button type="button" class="btn btn-blue taArmyAssistantBtn" style="width: 100%;">
+      🗡️ Auto Scout & Fight
+    </button>
+    <div class="text-xs mt-1 text-gray-400">
+      Scouts then fights (easiest first). Consults oracle. Stops on unwinnable fights.
+    </div>
+  `
+
+  // Insert at top of container
+  container.insertBefore(buttonContainer, container.firstChild)
+
+  // Add click handler
+  const button = buttonContainer.querySelector('.taArmyAssistantBtn')
+  button.addEventListener('click', async () => {
+    if (isRunning) {
+      stop()
+      return
+    }
+
+    isRunning = true
+    button.disabled = true
+    button.textContent = '⏸️ Running... (click to stop)'
+    button.classList.remove('btn-blue')
+    button.classList.add('btn-orange')
+
+    try {
+      await autoScoutAndFight()
+    } finally {
+      isRunning = false
+      button.disabled = false
+      button.textContent = '🗡️ Auto Scout & Fight'
+      button.classList.remove('btn-orange')
+      button.classList.add('btn-blue')
+    }
+  })
+
+  logger({ msgLevel: 'debug', msg: 'Army Assistant: Button injected into Attack page' })
+}
+
 export default {
   autoScoutAndFight,
   stop,
+  injectButton,
 }
