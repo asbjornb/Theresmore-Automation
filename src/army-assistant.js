@@ -13,6 +13,15 @@ import { units, factions, locations } from './data'
 import { CONSTANTS, navigation, logger, sleep, state, reactUtil, keyGen, resources, selectors } from './utils'
 import actions from './assist-mode-actions'
 
+// Fights to never auto-attack (dangerous or triggered by research)
+const FIGHT_BLACKLIST = [
+  'barbarian_village', // Dangerous early fight, triggered by barbarian_tribes research
+  'kobold_city', // Dangerous fight, triggered by kobold_nation research
+  'orcish_prison_camp', // Dangerous fight, triggered by orcish_threat research
+  'huge_cave', // Very dangerous fight, triggered by huge_cave_t research
+  // Add more late-game dangerous fights as discovered
+]
+
 // Stop flag
 let shouldStop = false
 
@@ -105,6 +114,12 @@ const getAvailableFights = () => {
         const fightData = [...factions, ...locations].find((f) => keyGen.enemy.key(f.id) === key)
 
         if (!fightData) return null
+
+        // Skip blacklisted fights
+        if (FIGHT_BLACKLIST.includes(fightData.id)) {
+          logger({ msgLevel: 'debug', msg: `Army Assistant: Skipping blacklisted fight ${fightData.id}` })
+          return null
+        }
 
         return {
           element,
