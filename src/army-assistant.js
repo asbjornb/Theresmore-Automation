@@ -94,10 +94,10 @@ const assignAll = (container) => {
 }
 
 /**
- * Execute one scouting mission
+ * Start scouting mission (don't wait for completion)
  */
-const doScout = async () => {
-  logger({ msgLevel: 'debug', msg: 'Army Assistant: Executing scout mission' })
+const startScout = async () => {
+  logger({ msgLevel: 'debug', msg: 'Army Assistant: Starting scout mission' })
 
   // Navigate to Army > Explore
   await navigation.switchPage(CONSTANTS.PAGES.ARMY)
@@ -123,31 +123,18 @@ const doScout = async () => {
     return { success: false, reason: 'no_button' }
   }
 
-  logger({ msgLevel: 'log', msg: 'Army Assistant: Sending scouting mission' })
+  logger({ msgLevel: 'log', msg: 'Army Assistant: Sending scouting mission (not waiting for completion)' })
   actions.automatedClicksPending++
   sendButton.click()
-
-  // Wait for explore to complete
-  const MainStore = reactUtil.getGameData()
-  if (MainStore?.ArmyStore) {
-    let waitCount = 0
-    while (MainStore.ArmyStore.exploreInProgress && waitCount < 60) {
-      await sleep(500)
-      waitCount++
-      if (shouldStop) break
-    }
-    logger({ msgLevel: 'debug', msg: `Army Assistant: Explore completed in ${waitCount * 0.5}s` })
-  } else {
-    await sleep(5000) // Default wait if we can't access ArmyStore
-  }
+  await sleep(500)
 
   return { success: true }
 }
 
 /**
- * Execute one fight - based on original army-attack.js logic
+ * Select a winnable fight and start it (don't wait for completion)
  */
-const doFight = async () => {
+const startFight = async () => {
   logger({ msgLevel: 'debug', msg: 'Army Assistant: Looking for fights' })
 
   // Navigate to Army > Attack
@@ -230,19 +217,22 @@ const doFight = async () => {
   // Sort by level (easiest first)
   enemyList.sort((a, b) => a.level - b.level)
 
-  // Find first winnable fight using armyCalculator
+  // Find first winnable fight using battle calculator
   let target = null
   for (const enemy of enemyList) {
     if (shouldStop) break
     const canWin = armyCalculator.canWinBattle(enemy.key, false, false, false)
     if (canWin) {
       target = enemy
+      logger({ msgLevel: 'log', msg: `Army Assistant: ${enemy.id} is winnable ✓` })
       break
+    } else {
+      logger({ msgLevel: 'debug', msg: `Army Assistant: ${enemy.id} is not winnable, checking next...` })
     }
   }
 
   if (!target) {
-    logger({ msgLevel: 'log', msg: 'Army Assistant: No winnable fights found' })
+    logger({ msgLevel: 'log', msg: 'Army Assistant: No winnable fights found - stopping fights' })
     // Close modal
     const closeButton = modals[0].parentElement.parentElement.parentElement.querySelector('div.absolute > button')
     if (closeButton) {
@@ -264,96 +254,114 @@ const doFight = async () => {
   assignAll(controlBox)
   await sleep(500)
 
-  // Attack
+  // Attack (don't wait for completion)
   if (!sendToAttackButton || sendToAttackButton.disabled) {
     logger({ msgLevel: 'error', msg: 'Army Assistant: Attack button not available' })
     return { success: false, reason: 'no_attack_button' }
   }
 
-  logger({ msgLevel: 'log', msg: `Army Assistant: Attacking ${target.id}` })
+  logger({ msgLevel: 'log', msg: `Army Assistant: Attacking ${target.id} (not waiting for completion)` })
   actions.automatedClicksPending++
   sendToAttackButton.click()
-
-  // Wait for attack to complete
-  const MainStore = reactUtil.getGameData()
-  if (MainStore?.ArmyStore) {
-    let waitCount = 0
-    while (MainStore.ArmyStore.attackInProgress && waitCount < 60) {
-      await sleep(500)
-      waitCount++
-      if (shouldStop) break
-    }
-    logger({ msgLevel: 'debug', msg: `Army Assistant: Attack completed in ${waitCount * 0.5}s` })
-  } else {
-    await sleep(5000) // Default wait if we can't access ArmyStore
-  }
+  await sleep(500)
 
   return { success: true, fight: target.id }
 }
 
 /**
- * Main army assistant loop - alternates between scouting and fighting
+ * Wait for both scouting and fighting to complete
+ */
+const waitForOperations = async () => {
+  const MainStore = reactUtil.getGameData()
+  if (!MainStore?.ArmyStore) {
+    await sleep(5000)
+    return
+  }
+
+  let waitCount = 0
+  while (waitCount < 60) {
+    const scoutInProgress = MainStore.ArmyStore.exploreInProgress
+    const fightInProgress = MainStore.ArmyStore.attackInProgress
+
+    if (!scoutInProgress && !fightInProgress) {
+      logger({ msgLevel: 'debug', msg: `Army Assistant: Operations completed in ${waitCount * 0.5}s` })
+      break
+    }
+
+    if (shouldStop) break
+    await sleep(500)
+    waitCount++
+  }
+}
+
+/**
+ * Main army assistant loop - runs scouting and fighting in parallel
  */
 const autoScoutAndFight = async () => {
   shouldStop = false
-  logger({ msgLevel: 'log', msg: 'Army Assistant: Starting auto scout + fight' })
+  logger({ msgLevel: 'log', msg: 'Army Assistant: Starting auto scout + fight (parallel mode)' })
 
   try {
-    let scoutNext = true // Start with scouting
-    let consecutiveFailures = 0
+    let canScout = true
+    let canFight = true
 
-    while (!shouldStop && consecutiveFailures < 3) {
-      // Check total hired scouting units
-      const scoutingUnits = getTotalScoutingUnits()
+    while (!shouldStop && (canScout || canFight)) {
+      let scoutStarted = false
+      let fightStarted = false
 
-      if (scoutingUnits.total < 10) {
-        logger({ msgLevel: 'log', msg: `Army Assistant: Stopping - only ${scoutingUnits.total} scouting units hired` })
+      // Try to start scouting if still viable
+      if (canScout) {
+        const scoutingUnits = getTotalScoutingUnits()
+
+        if (scoutingUnits.total < 10) {
+          logger({ msgLevel: 'log', msg: `Army Assistant: Stopping scouting - only ${scoutingUnits.total} scouting units hired` })
+          canScout = false
+        } else {
+          logger({
+            msgLevel: 'debug',
+            msg: `Army Assistant: Starting scout (${scoutingUnits.total} units available)`,
+          })
+
+          const result = await startScout()
+          if (result.success) {
+            scoutStarted = true
+          } else {
+            logger({ msgLevel: 'debug', msg: `Army Assistant: Scout failed: ${result.reason}` })
+          }
+        }
+      }
+
+      // Try to start fighting if still viable
+      if (canFight) {
+        logger({ msgLevel: 'debug', msg: 'Army Assistant: Starting fight' })
+
+        const result = await startFight()
+        if (result.success) {
+          fightStarted = true
+        } else {
+          if (result.reason === 'unwinnable' || result.reason === 'all_unwinnable') {
+            logger({ msgLevel: 'log', msg: 'Army Assistant: Stopping fights - no winnable enemies' })
+            canFight = false
+          } else {
+            logger({ msgLevel: 'debug', msg: `Army Assistant: Fight failed: ${result.reason}` })
+          }
+        }
+      }
+
+      // If both are disabled, stop
+      if (!canScout && !canFight) {
+        logger({ msgLevel: 'log', msg: 'Army Assistant: Both scouting and fighting stopped' })
         break
       }
 
-      logger({
-        msgLevel: 'debug',
-        msg: `Army Assistant: Total hired scouting units: ${scoutingUnits.scouts} scouts, ${scoutingUnits.explorers} explorers, ${scoutingUnits.familiars} familiars (total: ${scoutingUnits.total})`,
-      })
-
-      // Alternate between scouting and fighting
-      if (scoutNext) {
-        const result = await doScout()
-
-        if (!result.success) {
-          if (result.reason === 'no_button') {
-            logger({ msgLevel: 'log', msg: 'Army Assistant: Cannot scout (insufficient resources or units)' })
-            consecutiveFailures++
-          }
-          // Try fighting instead
-          scoutNext = false
-        } else {
-          consecutiveFailures = 0
-          scoutNext = false // Switch to fighting
-        }
+      // If at least one started, wait for operations to complete
+      if (scoutStarted || fightStarted) {
+        logger({ msgLevel: 'debug', msg: 'Army Assistant: Waiting for operations to complete...' })
+        await waitForOperations()
       } else {
-        const result = await doFight()
-
-        if (!result.success) {
-          if (result.reason === 'unwinnable' || result.reason === 'all_unwinnable') {
-            logger({ msgLevel: 'log', msg: 'Army Assistant: Stopping - encountered unwinnable fight' })
-            break
-          }
-          if (result.reason === 'no_attack_button') {
-            logger({ msgLevel: 'log', msg: 'Army Assistant: Cannot fight (insufficient resources or army)' })
-            consecutiveFailures++
-          }
-          // Try scouting instead
-          scoutNext = true
-        } else {
-          consecutiveFailures = 0
-          scoutNext = true // Switch to scouting
-        }
+        // Neither started, wait a bit and try again
+        await sleep(2000)
       }
-    }
-
-    if (consecutiveFailures >= 3) {
-      logger({ msgLevel: 'log', msg: 'Army Assistant: Stopping - out of resources or units' })
     }
 
     logger({ msgLevel: 'log', msg: 'Army Assistant: Finished' })
