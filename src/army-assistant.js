@@ -42,19 +42,28 @@ const stop = () => {
 }
 
 /**
- * Get available scouting units
+ * Get hired scouting units from army data
  */
 const getScoutingUnits = () => {
   try {
-    const scoutData = resources.get('scout')
-    const explorerData = resources.get('explorer')
-    const familiarData = resources.get('familiar')
+    const run = reactUtil.getGameData().run
+    if (!run || !run.army) {
+      return { scouts: 0, explorers: 0, familiars: 0, total: 0 }
+    }
+
+    const scoutUnit = run.army.find((u) => u.id === 'scout')
+    const explorerUnit = run.army.find((u) => u.id === 'explorer')
+    const familiarUnit = run.army.find((u) => u.id === 'familiar')
+
+    const scouts = scoutUnit?.value || 0
+    const explorers = explorerUnit?.value || 0
+    const familiars = familiarUnit?.value || 0
 
     return {
-      scouts: scoutData?.current || 0,
-      explorers: explorerData?.current || 0,
-      familiars: familiarData?.current || 0,
-      total: (scoutData?.current || 0) + (explorerData?.current || 0) + (familiarData?.current || 0),
+      scouts,
+      explorers,
+      familiars,
+      total: scouts + explorers + familiars,
     }
   } catch (e) {
     logger({ msgLevel: 'error', msg: `Army Assistant: Error getting scouting units: ${e.message}` })
@@ -353,13 +362,13 @@ const injectButton = () => {
 
   // Create button container
   const buttonContainer = document.createElement('div')
-  buttonContainer.className = 'taArmyAssistantButton mb-2 mt-2'
+  buttonContainer.className = 'taArmyAssistantButton mb-2'
   buttonContainer.innerHTML = `
-    <button type="button" class="btn btn-blue taArmyAssistantBtn" style="width: 100%;">
+    <button type="button" class="btn btn-sm btn-blue taArmyAssistantBtn">
       🗡️ Auto Scout & Fight
     </button>
-    <div class="text-xs mt-1 text-gray-400">
-      Scouts then fights (easiest first). Consults oracle. Stops on unwinnable fights.
+    <div class="text-xs mt-1 text-gray-400" style="font-size: 0.7rem;">
+      Scouts & fights (easiest first, consults oracle)
     </div>
   `
 
@@ -376,7 +385,7 @@ const injectButton = () => {
 
     isRunning = true
     button.disabled = true
-    button.textContent = '⏸️ Running... (click to stop)'
+    button.textContent = '⏸️ Running...'
     button.classList.remove('btn-blue')
     button.classList.add('btn-orange')
 
