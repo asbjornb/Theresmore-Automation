@@ -1,6 +1,7 @@
 import { buildings, tech, spells } from './data'
 import { CONSTANTS, navigation, selectors, logger, sleep, state, reactUtil, keyGen, resources } from './utils'
 import actions from './assist-mode-actions'
+import armyAssistant from './army-assistant'
 
 // Buildings to never auto-build (strategic choices or negative effects)
 const BLACKLIST = [
@@ -966,4 +967,12 @@ const init = () => {
   })
 }
 
-export default { init, getResourcesAtCap, castAllSpells, dismissAllSpells, checkSpellStatus }
+export default {
+  init,
+  getResourcesAtCap,
+  castAllSpells,
+  dismissAllSpells,
+  checkSpellStatus,
+  autoScoutAndFight: armyAssistant.autoScoutAndFight,
+  stopArmyAssistant: armyAssistant.stop,
+}
