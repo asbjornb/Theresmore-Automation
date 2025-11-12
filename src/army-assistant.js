@@ -10,7 +10,7 @@
  */
 
 import { units, factions, locations } from './data'
-import { CONSTANTS, navigation, logger, sleep, state, reactUtil, keyGen, resources, selectors } from './utils'
+import { CONSTANTS, navigation, logger, sleep, state, reactUtil, keyGen, resources, selectors, armyCalculator } from './utils'
 import actions from './assist-mode-actions'
 
 // Fights to never auto-attack (trigger ongoing faction attacks)
@@ -42,9 +42,9 @@ const stop = () => {
 }
 
 /**
- * Get available (not on mission) scouting units from army data
+ * Get total hired scouting units from army data
  */
-const getAvailableScoutingUnits = () => {
+const getTotalScoutingUnits = () => {
   try {
     const run = reactUtil.getGameData().run
     if (!run || !run.army) {
@@ -55,11 +55,10 @@ const getAvailableScoutingUnits = () => {
     const explorerUnit = run.army.find((u) => u.id === 'explorer')
     const familiarUnit = run.army.find((u) => u.id === 'familiar')
 
-    // unit.value = total hired, unit.away = currently on mission
-    // available = value - away
-    const scouts = (scoutUnit?.value || 0) - (scoutUnit?.away || 0)
-    const explorers = (explorerUnit?.value || 0) - (explorerUnit?.away || 0)
-    const familiars = (familiarUnit?.value || 0) - (familiarUnit?.away || 0)
+    // unit.value = total hired (regardless of assignment status)
+    const scouts = scoutUnit?.value || 0
+    const explorers = explorerUnit?.value || 0
+    const familiars = familiarUnit?.value || 0
 
     return {
       scouts,
@@ -71,6 +70,27 @@ const getAvailableScoutingUnits = () => {
     logger({ msgLevel: 'error', msg: `Army Assistant: Error getting scouting units: ${e.message}` })
     return { scouts: 0, explorers: 0, familiars: 0, total: 0 }
   }
+}
+
+/**
+ * Assign all units (scouts or army) using the "Add all" button
+ * Based on original code's assignAll function
+ */
+const assignAll = (container) => {
+  const allButtons = [...container.querySelectorAll('button:not(.btn)')]
+
+  for (let i = 0; i < allButtons.length; i++) {
+    const button = allButtons[i]
+    const parentClasses = button.parentElement.classList.toString()
+    const classesToFind = ['absolute', 'top-0', 'right-0']
+
+    if (classesToFind.every((className) => parentClasses.includes(className))) {
+      logger({ msgLevel: 'debug', msg: 'Army Assistant: Clicking assign all button' })
+      button.click()
+      return true
+    }
+  }
+  return false
 }
 
 /**
@@ -91,18 +111,10 @@ const doScout = async () => {
     return { success: false, reason: 'no_container' }
   }
 
-  // Click "Add all" button to assign all scouts
-  const addAllButton = [...container.querySelectorAll('button')].find((btn) => {
-    const svg = btn.querySelector('svg')
-    return svg && svg.getAttribute('data-icon') === 'angle-double-right'
-  })
-
-  if (addAllButton && !addAllButton.disabled) {
-    logger({ msgLevel: 'debug', msg: 'Army Assistant: Assigning all scouts' })
-    actions.automatedClicksPending++
-    addAllButton.click()
-    await sleep(500)
-  }
+  // Assign all scouts using proper method
+  actions.automatedClicksPending++
+  assignAll(container)
+  await sleep(500)
 
   // Find and click the blue "Send to Explore" button
   const sendButton = container.querySelector('button.btn-blue:not(.btn-off):not(.btn-off-cap)')
@@ -133,108 +145,7 @@ const doScout = async () => {
 }
 
 /**
- * Get available fights with skull count
- */
-const getAvailableFights = () => {
-  const container = document.querySelector('div.tab-container.sub-container')
-  if (!container) return []
-
-  const controlBox = container.querySelector('div.grid > div.flex')
-  if (!controlBox) return []
-
-  // Get fight list
-  const fightElements = [...container.querySelectorAll('div.grid > div.flex')].slice(1)
-
-  const fights = fightElements
-    .map((element) => {
-      try {
-        // Find skull indicators (difficulty)
-        const skulls = element.querySelectorAll('svg[data-icon="skull"]')
-        const difficulty = skulls.length
-
-        // Get fight key from React
-        const key = reactUtil.getNearestKey(element, 2)
-
-        // Find fight data
-        const fightData = [...factions, ...locations].find((f) => keyGen.enemy.key(f.id) === key)
-
-        if (!fightData) return null
-
-        // Skip blacklisted fights
-        if (FIGHT_BLACKLIST.includes(fightData.id)) {
-          logger({ msgLevel: 'debug', msg: `Army Assistant: Skipping blacklisted fight ${fightData.id}` })
-          return null
-        }
-
-        return {
-          element,
-          key,
-          id: fightData.id,
-          difficulty,
-          level: fightData.level || 0,
-        }
-      } catch (e) {
-        return null
-      }
-    })
-    .filter((f) => f !== null)
-
-  // Sort by difficulty (easiest first)
-  fights.sort((a, b) => a.difficulty - b.difficulty || a.level - b.level)
-
-  return fights
-}
-
-/**
- * Consult oracle for a fight
- */
-const consultOracle = async (fight) => {
-  logger({ msgLevel: 'debug', msg: `Army Assistant: Consulting oracle for ${fight.id}` })
-
-  // Find oracle button
-  const container = document.querySelector('div.tab-container.sub-container')
-  if (!container) return { winnable: false, reason: 'no_container' }
-
-  const buttons = [...container.querySelectorAll('button.btn')]
-  const oracleButton = buttons.find((btn) => {
-    const index = reactUtil.getBtnIndex(btn, 2)
-    return index === 2 // Oracle is typically button index 2
-  })
-
-  if (!oracleButton || oracleButton.disabled) {
-    logger({ msgLevel: 'debug', msg: 'Army Assistant: Oracle not available' })
-    return { winnable: false, reason: 'no_oracle' }
-  }
-
-  actions.automatedClicksPending++
-  oracleButton.click()
-  await sleep(1500)
-
-  // Check for oracle result modal
-  const modal = document.querySelector('div.modal')
-  if (!modal) {
-    logger({ msgLevel: 'debug', msg: 'Army Assistant: Oracle modal not found' })
-    return { winnable: false, reason: 'no_modal' }
-  }
-
-  // Look for win/loss indicators
-  const modalText = modal.textContent.toLowerCase()
-  const winnable = modalText.includes('win') || modalText.includes('victory') || !modalText.includes('loss')
-
-  // Close modal
-  const closeButton = modal.querySelector('button')
-  if (closeButton) {
-    actions.automatedClicksPending++
-    closeButton.click()
-    await sleep(500)
-  }
-
-  logger({ msgLevel: 'log', msg: `Army Assistant: Oracle says ${fight.id} is ${winnable ? 'WINNABLE' : 'UNWINNABLE'}` })
-  return { winnable, checked: true }
-}
-
-/**
- * Execute one fight
+ * Execute one fight - based on original army-attack.js logic
  */
 const doFight = async () => {
   logger({ msgLevel: 'debug', msg: 'Army Assistant: Looking for fights' })
@@ -245,74 +156,139 @@ const doFight = async () => {
   await navigation.switchSubPage(CONSTANTS.SUBPAGES.ATTACK, CONSTANTS.PAGES.ARMY)
   await sleep(1000)
 
-  const fights = getAvailableFights()
+  const container = document.querySelector('div.tab-container.sub-container')
+  if (!container) {
+    logger({ msgLevel: 'error', msg: 'Army Assistant: Could not find attack container' })
+    return { success: false, reason: 'no_container' }
+  }
 
-  if (fights.length === 0) {
-    logger({ msgLevel: 'debug', msg: 'Army Assistant: No fights available' })
+  const boxes = [...container.querySelectorAll('div.grid > div.flex')]
+  const controlBox = boxes.shift()
+
+  if (!controlBox) {
+    logger({ msgLevel: 'error', msg: 'Army Assistant: Could not find control box' })
+    return { success: false, reason: 'no_control_box' }
+  }
+
+  // Find enemy selector button (index 1) and attack button (index 3)
+  const enemySelectorButton = [...controlBox.querySelectorAll('button.btn')].find((button) => reactUtil.getBtnIndex(button, 2) === 1)
+  const sendToAttackButton = [...controlBox.querySelectorAll('button.btn')].find((button) => reactUtil.getBtnIndex(button, 0) === 3)
+
+  if (!enemySelectorButton || enemySelectorButton.disabled) {
+    logger({ msgLevel: 'debug', msg: 'Army Assistant: Enemy selector button not available' })
+    return { success: false, reason: 'no_selector' }
+  }
+
+  // Click enemy selector to open modal
+  logger({ msgLevel: 'debug', msg: 'Army Assistant: Opening enemy selector modal' })
+  actions.automatedClicksPending++
+  enemySelectorButton.click()
+  await sleep(500)
+
+  // Parse enemies from modal
+  const modals = [...document.querySelectorAll('h3.modal-title')]
+  if (modals.length === 0) {
+    logger({ msgLevel: 'error', msg: 'Army Assistant: Could not find enemy modal' })
+    return { success: false, reason: 'no_modal' }
+  }
+
+  const enemyList = [...modals.map((modal) => [...modal.parentElement.querySelectorAll('h5')]).flat()]
+    .map((h5) => {
+      const key = reactUtil.getNearestKey(h5, 2)
+      if (!keyGen.enemy.check(key)) return undefined
+
+      const enemyDetails = [...factions, ...locations].find((fight) => keyGen.enemy.key(fight.id) === key)
+      if (!enemyDetails) return undefined
+
+      // Skip blacklisted fights
+      if (FIGHT_BLACKLIST.includes(enemyDetails.id)) {
+        logger({ msgLevel: 'debug', msg: `Army Assistant: Skipping blacklisted fight ${enemyDetails.id}` })
+        return undefined
+      }
+
+      return {
+        button: h5,
+        key: enemyDetails.id,
+        id: enemyDetails.id,
+        level: enemyDetails.level || 0,
+      }
+    })
+    .filter((fight) => fight)
+
+  if (enemyList.length === 0) {
+    logger({ msgLevel: 'log', msg: 'Army Assistant: No fights available' })
+    // Close modal
+    const closeButton = modals[0].parentElement.parentElement.parentElement.querySelector('div.absolute > button')
+    if (closeButton) {
+      actions.automatedClicksPending++
+      closeButton.click()
+      await sleep(100)
+    }
     return { success: false, reason: 'no_fights' }
   }
 
-  // Try fights from easiest to hardest
-  for (const fight of fights) {
+  // Sort by level (easiest first)
+  enemyList.sort((a, b) => a.level - b.level)
+
+  // Find first winnable fight using armyCalculator
+  let target = null
+  for (const enemy of enemyList) {
     if (shouldStop) break
-
-    logger({ msgLevel: 'debug', msg: `Army Assistant: Considering ${fight.id} (${fight.difficulty} skulls)` })
-
-    // Consult oracle
-    const oracleResult = await consultOracle(fight)
-
-    if (!oracleResult.winnable) {
-      logger({ msgLevel: 'log', msg: `Army Assistant: Skipping unwinnable fight ${fight.id}` })
-      return { success: false, reason: 'unwinnable', fight: fight.id }
+    const canWin = armyCalculator.canWinBattle(enemy.key, false, false, false)
+    if (canWin) {
+      target = enemy
+      break
     }
-
-    // Fight is winnable - execute it
-    logger({ msgLevel: 'log', msg: `Army Assistant: Fighting ${fight.id} (${fight.difficulty} skulls)` })
-
-    const container = document.querySelector('div.tab-container.sub-container')
-    if (!container) return { success: false, reason: 'no_container' }
-
-    // Click "Add all" button to assign all army
-    const addAllButton = [...container.querySelectorAll('button')].find((btn) => {
-      const svg = btn.querySelector('svg')
-      return svg && svg.getAttribute('data-icon') === 'angle-double-right'
-    })
-
-    if (addAllButton && !addAllButton.disabled) {
-      logger({ msgLevel: 'debug', msg: 'Army Assistant: Assigning all army units' })
-      actions.automatedClicksPending++
-      addAllButton.click()
-      await sleep(500)
-    }
-
-    const attackButton = [...container.querySelectorAll('button.btn')].find((btn) => reactUtil.getBtnIndex(btn, 0) === 3)
-
-    if (!attackButton || attackButton.disabled) {
-      logger({ msgLevel: 'debug', msg: 'Army Assistant: Attack button not available' })
-      return { success: false, reason: 'no_attack_button' }
-    }
-
-    actions.automatedClicksPending++
-    attackButton.click()
-
-    // Wait for attack to complete
-    const MainStore = reactUtil.getGameData()
-    if (MainStore?.ArmyStore) {
-      let waitCount = 0
-      while (MainStore.ArmyStore.attackInProgress && waitCount < 60) {
-        await sleep(500)
-        waitCount++
-        if (shouldStop) break
-      }
-      logger({ msgLevel: 'debug', msg: `Army Assistant: Attack completed in ${waitCount * 0.5}s` })
-    } else {
-      await sleep(5000) // Default wait if we can't access ArmyStore
-    }
-
-    return { success: true, fight: fight.id }
   }
 
-  return { success: false, reason: 'all_unwinnable' }
+  if (!target) {
+    logger({ msgLevel: 'log', msg: 'Army Assistant: No winnable fights found' })
+    // Close modal
+    const closeButton = modals[0].parentElement.parentElement.parentElement.querySelector('div.absolute > button')
+    if (closeButton) {
+      actions.automatedClicksPending++
+      closeButton.click()
+      await sleep(100)
+    }
+    return { success: false, reason: 'all_unwinnable' }
+  }
+
+  // Click target enemy in modal
+  logger({ msgLevel: 'log', msg: `Army Assistant: Selecting ${target.id} to fight` })
+  actions.automatedClicksPending++
+  target.button.click()
+  await sleep(1000)
+
+  // Assign all army
+  actions.automatedClicksPending++
+  assignAll(controlBox)
+  await sleep(500)
+
+  // Attack
+  if (!sendToAttackButton || sendToAttackButton.disabled) {
+    logger({ msgLevel: 'error', msg: 'Army Assistant: Attack button not available' })
+    return { success: false, reason: 'no_attack_button' }
+  }
+
+  logger({ msgLevel: 'log', msg: `Army Assistant: Attacking ${target.id}` })
+  actions.automatedClicksPending++
+  sendToAttackButton.click()
+
+  // Wait for attack to complete
+  const MainStore = reactUtil.getGameData()
+  if (MainStore?.ArmyStore) {
+    let waitCount = 0
+    while (MainStore.ArmyStore.attackInProgress && waitCount < 60) {
+      await sleep(500)
+      waitCount++
+      if (shouldStop) break
+    }
+    logger({ msgLevel: 'debug', msg: `Army Assistant: Attack completed in ${waitCount * 0.5}s` })
+  } else {
+    await sleep(5000) // Default wait if we can't access ArmyStore
+  }
+
+  return { success: true, fight: target.id }
 }
 
 /**
@@ -327,17 +303,17 @@ const autoScoutAndFight = async () => {
     let consecutiveFailures = 0
 
     while (!shouldStop && consecutiveFailures < 3) {
-      // Check available scouting units (not on mission)
-      const scoutingUnits = getAvailableScoutingUnits()
+      // Check total hired scouting units
+      const scoutingUnits = getTotalScoutingUnits()
 
       if (scoutingUnits.total < 10) {
-        logger({ msgLevel: 'log', msg: `Army Assistant: Stopping - only ${scoutingUnits.total} scouting units available (not on mission)` })
+        logger({ msgLevel: 'log', msg: `Army Assistant: Stopping - only ${scoutingUnits.total} scouting units hired` })
         break
       }
 
       logger({
         msgLevel: 'debug',
-        msg: `Army Assistant: Available scouting units: ${scoutingUnits.scouts} scouts, ${scoutingUnits.explorers} explorers, ${scoutingUnits.familiars} familiars (total: ${scoutingUnits.total})`,
+        msg: `Army Assistant: Total hired scouting units: ${scoutingUnits.scouts} scouts, ${scoutingUnits.explorers} explorers, ${scoutingUnits.familiars} familiars (total: ${scoutingUnits.total})`,
       })
 
       // Alternate between scouting and fighting
@@ -374,9 +350,6 @@ const autoScoutAndFight = async () => {
           scoutNext = true // Switch to scouting
         }
       }
-
-      // Small delay between actions
-      await sleep(500)
     }
 
     if (consecutiveFailures >= 3) {
