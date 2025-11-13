@@ -83,6 +83,7 @@ const state = {
   scriptPaused: true,
   haveManualResourceButtons: true,
   stopAutoClicking: false,
+  armyAssistantRunning: false,
   lastVisited: {},
   buildings: [],
   options: getDefaultOptions(),

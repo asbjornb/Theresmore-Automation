@@ -26,7 +26,7 @@ const mainLoop = async () => {
 
   mainLoopRunning = true
 
-  while (!state.scriptPaused) {
+  while (!state.scriptPaused && !state.armyAssistantRunning) {
     tasks.cosmetics.removeToasts()
     await tasks.autoPrestige()
     await tasks.autoNGPlus()
@@ -56,7 +56,7 @@ const mainLoop = async () => {
       return state.lastVisited[a] - state.lastVisited[b]
     })
 
-    while (!state.scriptPaused && pagesToCheck.length) {
+    while (!state.scriptPaused && !state.armyAssistantRunning && pagesToCheck.length) {
       const pageToCheck = pagesToCheck.shift()
 
       if (pages[pageToCheck] && pages[pageToCheck].enabled()) {

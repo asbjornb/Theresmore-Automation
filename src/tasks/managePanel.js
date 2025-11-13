@@ -35,10 +35,7 @@ const createPanel = (switchScriptState) => {
     </div>
     <div class="mb-2">
       <div class="text-sm mb-1">Army Assistant:</div>
-      <div class="flex gap-1">
-        <button type="button" class="btn btn-sm btn-blue taArmyAssistantStart">▶ Start</button>
-        <button type="button" class="btn btn-sm btn-red taArmyAssistantStop" disabled>⏹ Stop</button>
-      </div>
+      <button type="button" class="btn btn-sm btn-blue taArmyAssistantToggle">▶ Start</button>
     </div>
   </p>
   `
@@ -85,31 +82,38 @@ const createPanel = (switchScriptState) => {
     }
   })
 
-  // Army assistant buttons
-  const startArmyButton = controlPanel.querySelector('.taArmyAssistantStart')
-  const stopArmyButton = controlPanel.querySelector('.taArmyAssistantStop')
+  // Army assistant toggle button
+  const armyToggleButton = controlPanel.querySelector('.taArmyAssistantToggle')
+  let armyRunning = false
 
-  startArmyButton.addEventListener('click', async () => {
-    // Disable start, enable stop
-    startArmyButton.disabled = true
-    stopArmyButton.disabled = false
+  armyToggleButton.addEventListener('click', async () => {
+    if (armyRunning) {
+      // Stop requested
+      armyAssistant.stop()
+      return
+    }
+
+    // Start army assistant
+    armyRunning = true
+    state.armyAssistantRunning = true
+    armyToggleButton.textContent = '⏹ Stop'
+    armyToggleButton.classList.remove('btn-blue')
+    armyToggleButton.classList.add('btn-red')
     castButton.disabled = true
     dismissButton.disabled = true
 
     try {
       await armyAssistant.autoScoutAndFight()
     } finally {
-      // Re-enable start, disable stop
-      startArmyButton.disabled = false
-      stopArmyButton.disabled = true
+      // Reset button to start state
+      armyRunning = false
+      state.armyAssistantRunning = false
+      armyToggleButton.textContent = '▶ Start'
+      armyToggleButton.classList.remove('btn-red')
+      armyToggleButton.classList.add('btn-blue')
       castButton.disabled = false
       dismissButton.disabled = false
     }
-  })
-
-  stopArmyButton.addEventListener('click', () => {
-    armyAssistant.stop()
-    stopArmyButton.disabled = true
   })
 }
 

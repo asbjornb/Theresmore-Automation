@@ -123,7 +123,7 @@ const startScout = async () => {
     return { success: false, reason: 'no_button' }
   }
 
-  logger({ msgLevel: 'log', msg: 'Army Assistant: Sending scouting mission (not waiting for completion)' })
+  logger({ msgLevel: 'debug', msg: 'Army Assistant: Sending scouting mission' })
   actions.automatedClicksPending++
   sendButton.click()
   await sleep(500)
@@ -203,7 +203,7 @@ const startFight = async () => {
     .filter((fight) => fight)
 
   if (enemyList.length === 0) {
-    logger({ msgLevel: 'log', msg: 'Army Assistant: No fights available' })
+    logger({ msgLevel: 'debug', msg: 'Army Assistant: No fights available' })
     // Close modal
     const closeButton = modals[0].parentElement.parentElement.parentElement.querySelector('div.absolute > button')
     if (closeButton) {
@@ -224,7 +224,7 @@ const startFight = async () => {
     const canWin = armyCalculator.canWinBattle(enemy.key, false, false, false)
     if (canWin) {
       target = enemy
-      logger({ msgLevel: 'log', msg: `Army Assistant: ${enemy.id} is winnable ✓` })
+      logger({ msgLevel: 'debug', msg: `Army Assistant: ${enemy.id} is winnable` })
       break
     } else {
       logger({ msgLevel: 'debug', msg: `Army Assistant: ${enemy.id} is not winnable, checking next...` })
@@ -244,7 +244,7 @@ const startFight = async () => {
   }
 
   // Click target enemy in modal
-  logger({ msgLevel: 'log', msg: `Army Assistant: Selecting ${target.id} to fight` })
+  logger({ msgLevel: 'debug', msg: `Army Assistant: Selecting ${target.id} to fight` })
   actions.automatedClicksPending++
   target.button.click()
   await sleep(1000)
@@ -260,12 +260,12 @@ const startFight = async () => {
     return { success: false, reason: 'no_attack_button' }
   }
 
-  logger({ msgLevel: 'log', msg: `Army Assistant: Attacking ${target.id} (not waiting for completion)` })
+  logger({ msgLevel: 'debug', msg: `Army Assistant: Attacking ${target.id}` })
   actions.automatedClicksPending++
   sendToAttackButton.click()
   await sleep(500)
 
-  return { success: true, fight: target.id }
+  return { success: true, fight: target.id, fightName: target.id }
 }
 
 /**
@@ -308,6 +308,7 @@ const autoScoutAndFight = async () => {
     while (!shouldStop && (canScout || canFight)) {
       let scoutStarted = false
       let fightStarted = false
+      let fightName = null
 
       // Try to start scouting if still viable
       if (canScout) {
@@ -326,7 +327,13 @@ const autoScoutAndFight = async () => {
           if (result.success) {
             scoutStarted = true
           } else {
-            logger({ msgLevel: 'debug', msg: `Army Assistant: Scout failed: ${result.reason}` })
+            // Permanently stop scouting if button is greyed out (insufficient resources)
+            if (result.reason === 'no_button') {
+              logger({ msgLevel: 'log', msg: 'Army Assistant: Stopping scouting - insufficient resources' })
+              canScout = false
+            } else {
+              logger({ msgLevel: 'debug', msg: `Army Assistant: Scout failed: ${result.reason}` })
+            }
           }
         }
       }
@@ -338,9 +345,17 @@ const autoScoutAndFight = async () => {
         const result = await startFight()
         if (result.success) {
           fightStarted = true
+          fightName = result.fightName
         } else {
+          // Permanently stop fighting if we hit resource/army issues or no winnable enemies
           if (result.reason === 'unwinnable' || result.reason === 'all_unwinnable') {
             logger({ msgLevel: 'log', msg: 'Army Assistant: Stopping fights - no winnable enemies' })
+            canFight = false
+          } else if (result.reason === 'no_selector') {
+            logger({ msgLevel: 'log', msg: 'Army Assistant: Stopping fights - enemy selector unavailable (no army or insufficient resources)' })
+            canFight = false
+          } else if (result.reason === 'no_attack_button') {
+            logger({ msgLevel: 'log', msg: 'Army Assistant: Stopping fights - insufficient resources' })
             canFight = false
           } else {
             logger({ msgLevel: 'debug', msg: `Army Assistant: Fight failed: ${result.reason}` })
@@ -358,6 +373,11 @@ const autoScoutAndFight = async () => {
       if (scoutStarted || fightStarted) {
         logger({ msgLevel: 'debug', msg: 'Army Assistant: Waiting for operations to complete...' })
         await waitForOperations()
+
+        // Announce victory
+        if (fightName) {
+          logger({ msgLevel: 'log', msg: `Defeated ${fightName}` })
+        }
       } else {
         // Neither started, wait a bit and try again
         await sleep(2000)
