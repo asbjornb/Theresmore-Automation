@@ -7,12 +7,12 @@ const updateStats = () => {
     controlPanel.querySelector('.legacyCount').innerText = reactUtil.getGameData().LegacyStore.ownedLegacies.length ?? 0
     controlPanel.querySelector('.lpCount').innerText = (reactUtil.getGameData().run.resources.find((res) => res.id === 'legacy') || { value: 0 }).value ?? 0
 
-    // Update spell status display
+    // Update spell status display (updates all spell count elements for both expanded and minimized views)
     if (state.spellStatus) {
       const { active, total } = state.spellStatus
-      const spellCountElement = controlPanel.querySelector('.spellCount')
+      const spellCountElements = controlPanel.querySelectorAll('.spellCount')
 
-      if (spellCountElement) {
+      spellCountElements.forEach((spellCountElement) => {
         spellCountElement.innerHTML = `${active}/${total}`
 
         // Color code: green if all active, yellow if some, red if none
@@ -25,7 +25,7 @@ const updateStats = () => {
         } else {
           spellCountElement.style.color = '' // default
         }
-      }
+      })
     }
   }
 }
