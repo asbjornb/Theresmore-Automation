@@ -19,9 +19,9 @@ const createPanel = (switchScriptState) => {
   controlPanelElement.classList.add('taControlPanelElement')
 
   controlPanelElement.innerHTML = `
-    <div class="flex items-center justify-between mb-2">
+    <div class="flex items-center justify-between mb-2 gap-2">
       <span>Theresmore Automation ${taVersion ? `v${taVersion}` : ''}</span>
-      <button type="button" class="btn btn-sm btn-blue taToggleCollapse">${isCollapsed ? '▼' : '▲'}</button>
+      <button type="button" class="text-xs opacity-60 hover:opacity-100 taToggleCollapse">${isCollapsed ? '▲' : '▼'}</button>
     </div>
     <div class="taCollapsibleContent" style="display: ${isCollapsed ? 'none' : 'block'}">
       <div>
@@ -61,16 +61,16 @@ const createPanel = (switchScriptState) => {
     const isCurrentlyCollapsed = collapsibleContent.style.display === 'none'
 
     if (isCurrentlyCollapsed) {
-      // Expand
+      // Expand - show down arrow to indicate "click to collapse"
       collapsibleContent.style.display = 'block'
       minimizedInfo.style.display = 'none'
-      toggleButton.textContent = '▲'
+      toggleButton.textContent = '▼'
       localStorage.set('panelCollapsed', false)
     } else {
-      // Collapse
+      // Collapse - show up arrow to indicate "click to expand"
       collapsibleContent.style.display = 'none'
       minimizedInfo.style.display = 'block'
-      toggleButton.textContent = '▼'
+      toggleButton.textContent = '▲'
       localStorage.set('panelCollapsed', true)
     }
   })

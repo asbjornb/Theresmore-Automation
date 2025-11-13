@@ -311,7 +311,7 @@ const autoScoutAndFight = async () => {
       let fightName = null
 
       // Try to start scouting if still viable
-      if (canScout) {
+      if (canScout && !shouldStop) {
         const scoutingUnits = getTotalScoutingUnits()
 
         if (scoutingUnits.total < 10) {
@@ -339,7 +339,7 @@ const autoScoutAndFight = async () => {
       }
 
       // Try to start fighting if still viable
-      if (canFight) {
+      if (canFight && !shouldStop) {
         logger({ msgLevel: 'debug', msg: 'Army Assistant: Starting fight' })
 
         const result = await startFight()
@@ -366,6 +366,12 @@ const autoScoutAndFight = async () => {
       // If both are disabled, stop
       if (!canScout && !canFight) {
         logger({ msgLevel: 'log', msg: 'Army Assistant: Both scouting and fighting stopped' })
+        break
+      }
+
+      // Check for stop before waiting
+      if (shouldStop) {
+        logger({ msgLevel: 'log', msg: 'Army Assistant: Stop requested' })
         break
       }
 
