@@ -44,13 +44,13 @@ const createPanel = () => {
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" class="taAssistResearch" ${state.options.assistMode?.research !== false ? 'checked' : ''}>
             <span>Assist with Research</span>
-            <span class="text-xs text-gray-400">(every 2min - skips dangerous research)</span>
+            <span class="text-xs text-gray-400">(every 2min - skips fights/resets/exclusive choices)</span>
           </label>
 
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" class="taAssistPrayers" ${state.options.assistMode?.prayers !== false ? 'checked' : ''}>
             <span>Assist with Prayers</span>
-            <span class="text-xs text-gray-400">(every 2min - uses excess faith)</span>
+            <span class="text-xs text-gray-400">(every 2min - skips exclusive choices)</span>
           </label>
         </div>
       </div>

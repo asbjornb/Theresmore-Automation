@@ -232,7 +232,7 @@ const startFight = async () => {
   }
 
   if (!target) {
-    logger({ msgLevel: 'log', msg: 'Army Assistant: No winnable fights found - stopping fights' })
+    logger({ msgLevel: 'debug', msg: 'Army Assistant: No winnable fights found' })
     // Close modal
     const closeButton = modals[0].parentElement.parentElement.parentElement.querySelector('div.absolute > button')
     if (closeButton) {
@@ -365,7 +365,6 @@ const autoScoutAndFight = async () => {
 
       // If both are disabled, stop
       if (!canScout && !canFight) {
-        logger({ msgLevel: 'log', msg: 'Army Assistant: Both scouting and fighting stopped' })
         break
       }
 
