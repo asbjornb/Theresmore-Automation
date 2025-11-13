@@ -369,11 +369,6 @@ const tryResearchAtCap = async () => {
       }
     }
 
-    // Navigate back to Build page
-    actions.automatedClicksPending++ // switchPage will click a tab
-    await navigation.switchPage(CONSTANTS.PAGES.BUILD)
-    await sleep(500)
-
     if (researchCompleted > 0) {
       return { researched: true, count: researchCompleted, research: completedResearch }
     }
@@ -429,11 +424,6 @@ const checkSpellStatus = async () => {
       total: totalSpells,
       lastChecked: Date.now(),
     }
-
-    // Navigate back to Build page
-    actions.automatedClicksPending++
-    await navigation.switchPage(CONSTANTS.PAGES.BUILD)
-    await sleep(500)
 
     return { active: activeSpells, total: totalSpells }
   })
@@ -600,11 +590,6 @@ const tryPrayerAtCap = async () => {
         unlockedPrayers.push(prayer.id)
       }
     }
-
-    // Navigate back to Build page
-    actions.automatedClicksPending++ // switchPage will click a tab
-    await navigation.switchPage(CONSTANTS.PAGES.BUILD)
-    await sleep(500)
 
     if (prayersUnlocked > 0) {
       return { prayed: true, count: prayersUnlocked, prayers: unlockedPrayers }
