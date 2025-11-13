@@ -296,14 +296,17 @@ const waitForOperations = async () => {
 
 /**
  * Main army assistant loop - runs scouting and fighting in parallel
+ * @param {string} mode - 'scout', 'fight', or 'both' (default)
  */
-const autoScoutAndFight = async () => {
+const autoScoutAndFight = async (mode = 'both') => {
   shouldStop = false
-  logger({ msgLevel: 'log', msg: 'Army Assistant: Starting auto scout + fight (parallel mode)' })
+
+  const modeLabels = { scout: 'scouting only', fight: 'fighting only', both: 'scout + fight (parallel mode)' }
+  logger({ msgLevel: 'log', msg: `Army Assistant: Starting ${modeLabels[mode] || modeLabels.both}` })
 
   try {
-    let canScout = true
-    let canFight = true
+    let canScout = mode === 'scout' || mode === 'both'
+    let canFight = mode === 'fight' || mode === 'both'
 
     while (!shouldStop && (canScout || canFight)) {
       let scoutStarted = false

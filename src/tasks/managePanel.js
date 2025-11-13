@@ -41,8 +41,12 @@ const createPanel = (switchScriptState) => {
         </div>
       </div>
       <div class="mb-2">
-        <div class="text-sm mb-1">Army Assistant:</div>
-        <button type="button" class="btn btn-sm btn-blue taArmyAssistantToggle">▶ Start</button>
+        <div class="text-sm mb-1">Army Assistant <span class="text-xs text-gray-400">(uses existing units)</span>:</div>
+        <div class="flex gap-1">
+          <button type="button" class="btn btn-sm btn-blue taArmyScoutOnly">🔍 Scout</button>
+          <button type="button" class="btn btn-sm btn-blue taArmyFightOnly">⚔️ Fight</button>
+          <button type="button" class="btn btn-sm btn-blue taArmyBoth">⚔️ Both</button>
+        </div>
       </div>
     </div>
     <div class="taMinimizedInfo text-sm" style="display: ${isCollapsed ? 'block' : 'none'}">
@@ -116,11 +120,14 @@ const createPanel = (switchScriptState) => {
     }
   })
 
-  // Army assistant toggle button
-  const armyToggleButton = controlPanel.querySelector('.taArmyAssistantToggle')
+  // Army assistant buttons
+  const scoutButton = controlPanel.querySelector('.taArmyScoutOnly')
+  const fightButton = controlPanel.querySelector('.taArmyFightOnly')
+  const bothButton = controlPanel.querySelector('.taArmyBoth')
   let armyRunning = false
+  let activeButton = null
 
-  armyToggleButton.addEventListener('click', async () => {
+  const startArmyAssistant = async (mode, button) => {
     if (armyRunning) {
       // Stop requested
       armyAssistant.stop()
@@ -129,26 +136,46 @@ const createPanel = (switchScriptState) => {
 
     // Start army assistant
     armyRunning = true
+    activeButton = button
     state.armyAssistantRunning = true
-    armyToggleButton.textContent = '⏹ Stop'
-    armyToggleButton.classList.remove('btn-blue')
-    armyToggleButton.classList.add('btn-red')
+    button.textContent = '⏹ Stop'
+    button.classList.remove('btn-blue')
+    button.classList.add('btn-red')
     castButton.disabled = true
     dismissButton.disabled = true
 
+    // Disable other army buttons
+    if (button !== scoutButton) scoutButton.disabled = true
+    if (button !== fightButton) fightButton.disabled = true
+    if (button !== bothButton) bothButton.disabled = true
+
     try {
-      await armyAssistant.autoScoutAndFight()
+      await armyAssistant.autoScoutAndFight(mode)
     } finally {
-      // Reset button to start state
+      // Reset all buttons to start state
       armyRunning = false
+      activeButton = null
       state.armyAssistantRunning = false
-      armyToggleButton.textContent = '▶ Start'
-      armyToggleButton.classList.remove('btn-red')
-      armyToggleButton.classList.add('btn-blue')
+      scoutButton.textContent = '🔍 Scout'
+      scoutButton.classList.remove('btn-red')
+      scoutButton.classList.add('btn-blue')
+      scoutButton.disabled = false
+      fightButton.textContent = '⚔️ Fight'
+      fightButton.classList.remove('btn-red')
+      fightButton.classList.add('btn-blue')
+      fightButton.disabled = false
+      bothButton.textContent = '⚔️ Both'
+      bothButton.classList.remove('btn-red')
+      bothButton.classList.add('btn-blue')
+      bothButton.disabled = false
       castButton.disabled = false
       dismissButton.disabled = false
     }
-  })
+  }
+
+  scoutButton.addEventListener('click', () => startArmyAssistant('scout', scoutButton))
+  fightButton.addEventListener('click', () => startArmyAssistant('fight', fightButton))
+  bothButton.addEventListener('click', () => startArmyAssistant('both', bothButton))
 }
 
 const updatePanel = () => {

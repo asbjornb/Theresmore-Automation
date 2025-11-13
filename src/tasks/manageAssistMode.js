@@ -18,10 +18,15 @@ const createPanel = () => {
 
       <div class="mb-6 p-4 bg-gray-800 rounded">
         <h3 class="font-bold mb-2">Philosophy</h3>
-        <p class="text-sm text-gray-300">
+        <p class="text-sm text-gray-300 mb-3">
           Assist Mode is designed to <strong>aid your manual play</strong>, not replace it.
           It only acts when you're idle and resources are going to waste.
           You maintain full control over strategic decisions like which statues, shrines, or dangerous research to pursue.
+        </p>
+        <h3 class="font-bold mb-2">Army Assistant</h3>
+        <p class="text-sm text-gray-300">
+          The Army Assistant buttons (Scout/Fight/Both) automate scouting and fighting using your <strong>existing hired units</strong>.
+          It won't buy scouts or army - that's your strategic decision. Just hire the units you want, then click a button to automate the tedious clicking.
         </p>
       </div>
 
@@ -66,6 +71,10 @@ const createPanel = () => {
       <hr class="my-6 border-gray-700">
 
       <div class="mb-4">
+        <h3 class="font-bold mb-2">Advanced Automation</h3>
+        <p class="text-sm text-gray-300 mb-3">
+          Advanced automation is the <a href="https://github.com/Theresmore-Automation/Theresmore-Automation" target="_blank" class="text-blue-400 hover:text-blue-300 underline">original Theresmore-Automation script</a> - much more powerful but aimed at <strong>playing the game for you</strong>, not merely assisting.
+        </p>
         <button type="button" class="btn btn-blue taAdvancedSettings">Advanced Automation Settings</button>
         <p class="text-xs text-yellow-400 mt-2">
           ⚠️ Advanced automation is <strong>not compatible</strong> with Assist Mode. Use one or the other, not both.
@@ -80,6 +89,14 @@ const createPanel = () => {
   const panel = document.querySelector(`#${id}`)
 
   panel.querySelector('.taCloseAssistPanel').addEventListener('click', togglePanel)
+
+  // Click outside to close
+  panel.addEventListener('click', (e) => {
+    // Close if clicking on the backdrop (the panel itself), not the inner content
+    if (e.target === panel) {
+      togglePanel()
+    }
+  })
   panel.querySelector('.taAdvancedSettings').addEventListener('click', () => {
     togglePanel()
     manageOptions.togglePanel()
