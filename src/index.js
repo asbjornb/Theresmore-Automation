@@ -115,6 +115,9 @@ const init = async () => {
   // Initialize Assist Mode
   assistMode.init()
 
+  // Enhance game modals with click-outside-to-close
+  tasks.enhanceGameModals()
+
   await start()
 }
 
