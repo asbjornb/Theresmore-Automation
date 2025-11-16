@@ -1,6 +1,7 @@
 import calculateTippyTTF from './calculateTippyTTF'
 import calculateTTF from './calculateTTF'
 import addArmyButtons from './addArmyButtons'
+import addBattlePrediction from './addBattlePrediction'
 import autoClicker from './autoClicker'
 import autoAncestor from './autoAncestor'
 import autoPrestige from './autoPrestige'
@@ -20,6 +21,7 @@ export default {
   calculateTippyTTF,
   calculateTTF,
   addArmyButtons,
+  addBattlePrediction,
   autoClicker,
   autoAncestor,
   autoPrestige,
