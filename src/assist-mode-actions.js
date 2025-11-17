@@ -26,7 +26,18 @@ class AssistModeActions {
     // Listen for clicks and detect user activity
     document.addEventListener('click', (event) => {
       // Only track trusted (real user) clicks, not programmatic ones
-      if (!event.isTrusted) {
+      // Also check coordinates as fallback (programmatic clicks often have invalid coords)
+      const isTrustedClick = event.isTrusted
+      const hasValidCoords = event.clientX > 0 && event.clientY > 0
+
+      // Log for debugging
+      logger({
+        msgLevel: 'debug',
+        msg: `Click detected - isTrusted: ${isTrustedClick}, coords: (${event.clientX}, ${event.clientY}), isActing: ${this.isActing}, pending: ${this.automatedClicksPending}`,
+      })
+
+      // Require BOTH isTrusted AND valid coordinates for extra safety
+      if (!isTrustedClick || !hasValidCoords) {
         return
       }
 
@@ -39,7 +50,7 @@ class AssistModeActions {
         } else {
           // Unexpected click during automation = user is active!
           this.lastUserActivity = Date.now()
-          logger({ msgLevel: 'debug', msg: 'Assist Mode: Unexpected click detected during automation!' })
+          logger({ msgLevel: 'log', msg: '🎮 Player activity detected - assist mode will pause after current action' })
         }
       } else {
         // Not during automation: track as user activity

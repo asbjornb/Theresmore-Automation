@@ -875,6 +875,12 @@ const assistLoop = async () => {
 
     // Try research if research resource is capped (if enabled)
     if (researchIsCapped && state.options.assistMode?.research !== false) {
+      // Check if player became active before starting
+      if (!actions.isUserIdle(3000)) {
+        logger({ msgLevel: 'log', msg: 'Assist Mode: Player active - skipping research' })
+        return
+      }
+
       logger({ msgLevel: 'debug', msg: 'Assist Mode: Research is capped, checking for research opportunities...' })
 
       try {
@@ -893,6 +899,12 @@ const assistLoop = async () => {
 
     // Try prayers if faith resource is capped (if enabled)
     if (faithIsCapped && state.options.assistMode?.prayers !== false) {
+      // Check if player became active before starting
+      if (!actions.isUserIdle(3000)) {
+        logger({ msgLevel: 'log', msg: 'Assist Mode: Player active - skipping prayers' })
+        return
+      }
+
       logger({ msgLevel: 'debug', msg: 'Assist Mode: Faith is capped, checking for prayer opportunities...' })
 
       try {
@@ -912,6 +924,12 @@ const assistLoop = async () => {
 
   // Try building if cooldown has passed (every 5 seconds) and buildings are enabled
   if (canBuild() && state.options.assistMode?.buildings !== false) {
+    // Check if player became active before starting
+    if (!actions.isUserIdle(3000)) {
+      logger({ msgLevel: 'log', msg: 'Assist Mode: Player active - skipping building' })
+      return
+    }
+
     logger({ msgLevel: 'debug', msg: 'Assist Mode: Checking for building opportunities...' })
     try {
       const buildResult = await tryBuildAtCap()
