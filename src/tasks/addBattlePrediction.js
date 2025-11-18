@@ -95,26 +95,40 @@ const addBattlePrediction = () => {
   }
 
   const container = document.querySelector('div.tab-container.sub-container')
-  if (!container) return
+  if (!container) {
+    logger({ msgLevel: 'debug', msg: 'Battle Prediction: Container not found' })
+    return
+  }
 
   // Create prediction element if it doesn't exist
   if (!predictionElement) {
+    logger({ msgLevel: 'debug', msg: 'Battle Prediction: Creating prediction element' })
     predictionElement = createPredictionElement()
 
     const boxes = [...container.querySelectorAll('div.grid > div.flex')]
-    if (!boxes.length) return
+    if (!boxes.length) {
+      logger({ msgLevel: 'debug', msg: 'Battle Prediction: No boxes found' })
+      return
+    }
 
     const controlBox = boxes[0]
-    if (!controlBox) return
+    if (!controlBox) {
+      logger({ msgLevel: 'debug', msg: 'Battle Prediction: No control box found' })
+      return
+    }
 
     // Find the attack button's parent to insert prediction above it
     const attackButton = [...controlBox.querySelectorAll('button.btn')].find((button) => reactUtil.getBtnIndex(button, 0) === 3)
-    if (!attackButton) return
+    if (!attackButton) {
+      logger({ msgLevel: 'debug', msg: 'Battle Prediction: Attack button not found' })
+      return
+    }
 
     // Insert prediction element before the attack button's parent container
     const buttonContainer = attackButton.parentElement
     if (buttonContainer) {
       buttonContainer.insertAdjacentElement('beforebegin', predictionElement)
+      logger({ msgLevel: 'debug', msg: 'Battle Prediction: Element created and inserted' })
     }
   }
 
@@ -124,12 +138,15 @@ const addBattlePrediction = () => {
   // Only recalculate if enemy changed
   if (currentEnemyId !== lastEnemyId) {
     lastEnemyId = currentEnemyId
+    logger({ msgLevel: 'debug', msg: `Battle Prediction: Enemy changed to ${currentEnemyId || 'none'}` })
 
     if (!currentEnemyId) {
       updatePrediction(null, false)
     } else {
       // Calculate if battle is winnable
+      logger({ msgLevel: 'debug', msg: `Battle Prediction: Calculating winnability for ${currentEnemyId}` })
       const canWin = armyCalculator.canWinBattle(currentEnemyId, false, false, false)
+      logger({ msgLevel: 'debug', msg: `Battle Prediction: Result = ${canWin ? 'Winnable' : 'Not winnable'}` })
       updatePrediction(currentEnemyId, canWin)
     }
   }

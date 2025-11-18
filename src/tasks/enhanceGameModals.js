@@ -37,8 +37,15 @@ const enhanceModal = (modalTitle) => {
 
     // Add click handler to backdrop
     const clickHandler = (e) => {
-      // Only close if clicking directly on the backdrop or modal container, not inner content
-      if (e.target === backdrop || e.target === modalContainer) {
+      // Find the modal's inner content area (usually has class with 'bg-' or similar)
+      const modalInner = modalContainer.querySelector('.taAssistPanelInner, .modal-content, [class*="bg-"]')
+
+      // Close if click is outside the inner content
+      if (modalInner && !modalInner.contains(e.target)) {
+        logger({ msgLevel: 'debug', msg: 'Modal: Click outside detected, closing modal' })
+        closeButton.click()
+      } else if (!modalContainer.contains(e.target)) {
+        // Fallback: close if click is completely outside modal container
         logger({ msgLevel: 'debug', msg: 'Modal: Click outside detected, closing modal' })
         closeButton.click()
       }
