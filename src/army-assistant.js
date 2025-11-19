@@ -354,6 +354,9 @@ const autoScoutAndFight = async (mode = 'both') => {
           if (result.reason === 'unwinnable' || result.reason === 'all_unwinnable') {
             logger({ msgLevel: 'log', msg: 'Army Assistant: Stopping fights - no winnable enemies' })
             canFight = false
+          } else if (result.reason === 'no_fights') {
+            logger({ msgLevel: 'log', msg: 'Army Assistant: Stopping fights - no available enemies (all blacklisted)' })
+            canFight = false
           } else if (result.reason === 'no_selector') {
             logger({ msgLevel: 'log', msg: 'Army Assistant: Stopping fights - enemy selector unavailable (no army or insufficient resources)' })
             canFight = false
