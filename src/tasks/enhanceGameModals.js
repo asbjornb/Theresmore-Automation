@@ -37,6 +37,11 @@ const enhanceModal = (modalTitle) => {
 
     // Add click handler to backdrop
     const clickHandler = (e) => {
+      // Allow close button to work normally
+      if (e.target === closeButton || closeButton.contains(e.target)) {
+        return
+      }
+
       // Find the modal's inner content area (usually has class with 'bg-' or similar)
       const modalInner = modalContainer.querySelector('.taAssistPanelInner, .modal-content, [class*="bg-"]')
 

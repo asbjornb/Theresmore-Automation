@@ -3,7 +3,7 @@
  * Shows if a battle is winnable before attacking
  */
 
-import { CONSTANTS, navigation, armyCalculator, reactUtil } from '../utils'
+import { CONSTANTS, navigation, armyCalculator, reactUtil, logger } from '../utils'
 
 let lastEnemyId = null
 let predictionElement = null
