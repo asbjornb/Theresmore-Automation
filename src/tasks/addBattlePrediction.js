@@ -60,26 +60,44 @@ const updatePrediction = (enemyId, canWin) => {
 const getSelectedEnemy = () => {
   try {
     const container = document.querySelector('div.tab-container.sub-container')
-    if (!container) return null
+    if (!container) {
+      logger({ msgLevel: 'debug', msg: 'Battle Prediction: No container found in getSelectedEnemy' })
+      return null
+    }
 
     const boxes = [...container.querySelectorAll('div.grid > div.flex')]
-    if (!boxes.length) return null
+    if (!boxes.length) {
+      logger({ msgLevel: 'debug', msg: 'Battle Prediction: No boxes found in getSelectedEnemy' })
+      return null
+    }
 
     const controlBox = boxes[0]
-    if (!controlBox) return null
+    if (!controlBox) {
+      logger({ msgLevel: 'debug', msg: 'Battle Prediction: No controlBox found in getSelectedEnemy' })
+      return null
+    }
 
     // Find enemy name display (h5 element)
     const enemyName = controlBox.querySelector('h5')
-    if (!enemyName) return null
+    if (!enemyName) {
+      logger({ msgLevel: 'debug', msg: 'Battle Prediction: No enemy h5 found (no enemy selected)' })
+      return null
+    }
 
     // Get the React key which contains the enemy ID
     const key = reactUtil.getNearestKey(enemyName, 2)
-    if (!key || !key.startsWith('enemy_')) return null
+    logger({ msgLevel: 'debug', msg: `Battle Prediction: Found key = ${key}` })
+    if (!key || !key.startsWith('enemy_')) {
+      logger({ msgLevel: 'debug', msg: `Battle Prediction: Key invalid or doesn't start with enemy_` })
+      return null
+    }
 
     // Extract enemy ID from key (format: "enemy_<id>")
     const enemyId = key.replace('enemy_', '')
+    logger({ msgLevel: 'debug', msg: `Battle Prediction: Extracted enemyId = ${enemyId}` })
     return enemyId
   } catch (e) {
+    logger({ msgLevel: 'error', msg: `Battle Prediction: Error in getSelectedEnemy: ${e.message}` })
     return null
   }
 }
@@ -134,6 +152,7 @@ const addBattlePrediction = () => {
 
   // Check selected enemy
   const currentEnemyId = getSelectedEnemy()
+  logger({ msgLevel: 'debug', msg: `Battle Prediction: Checking enemy - current: ${currentEnemyId}, last: ${lastEnemyId}` })
 
   // Only recalculate if enemy changed
   if (currentEnemyId !== lastEnemyId) {
