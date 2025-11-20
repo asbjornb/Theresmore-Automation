@@ -77,25 +77,28 @@ const getSelectedEnemy = () => {
       return null
     }
 
-    // Find enemy name display (h5 element)
-    const enemyName = controlBox.querySelector('h5')
-    if (!enemyName) {
-      logger({ msgLevel: 'debug', msg: 'Battle Prediction: No enemy h5 found (no enemy selected)' })
-      return null
+    // Search for any element with an enemy key in the control box
+    // Try all elements, not just h5
+    const allElements = controlBox.querySelectorAll('*')
+    logger({ msgLevel: 'debug', msg: `Battle Prediction: Searching ${allElements.length} elements for enemy key` })
+
+    for (const element of allElements) {
+      // Try different depths
+      for (let depth = 0; depth <= 5; depth++) {
+        const key = reactUtil.getNearestKey(element, depth)
+        if (key && key.startsWith('enemy_')) {
+          const enemyId = key.replace('enemy_', '')
+          logger({
+            msgLevel: 'debug',
+            msg: `Battle Prediction: Found enemy key at depth ${depth} in ${element.tagName}: ${enemyId}`,
+          })
+          return enemyId
+        }
+      }
     }
 
-    // Get the React key which contains the enemy ID
-    const key = reactUtil.getNearestKey(enemyName, 2)
-    logger({ msgLevel: 'debug', msg: `Battle Prediction: Found key = ${key}` })
-    if (!key || !key.startsWith('enemy_')) {
-      logger({ msgLevel: 'debug', msg: `Battle Prediction: Key invalid or doesn't start with enemy_` })
-      return null
-    }
-
-    // Extract enemy ID from key (format: "enemy_<id>")
-    const enemyId = key.replace('enemy_', '')
-    logger({ msgLevel: 'debug', msg: `Battle Prediction: Extracted enemyId = ${enemyId}` })
-    return enemyId
+    logger({ msgLevel: 'debug', msg: 'Battle Prediction: No enemy key found in any element' })
+    return null
   } catch (e) {
     logger({ msgLevel: 'error', msg: `Battle Prediction: Error in getSelectedEnemy: ${e.message}` })
     return null
