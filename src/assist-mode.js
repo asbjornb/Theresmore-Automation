@@ -843,6 +843,12 @@ const assistLoop = async () => {
     return
   }
 
+  // Don't interfere with army assistant automation
+  if (state.armyAssistantRunning) {
+    logger({ msgLevel: 'debug', msg: 'Assist Mode: Army assistant is running, not interfering' })
+    return
+  }
+
   // Check if user is idle
   const idleThreshold = state.options.assistMode?.idleSeconds ? state.options.assistMode.idleSeconds * 1000 : 600000
   if (!actions.isUserIdle(idleThreshold)) {

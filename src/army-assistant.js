@@ -300,6 +300,7 @@ const waitForOperations = async () => {
  */
 const autoScoutAndFight = async (mode = 'both') => {
   shouldStop = false
+  state.armyAssistantRunning = true
 
   const modeLabels = { scout: 'scouting only', fight: 'fighting only', both: 'scout + fight (parallel mode)' }
   logger({ msgLevel: 'log', msg: `Army Assistant: Starting ${modeLabels[mode] || modeLabels.both}` })
@@ -403,6 +404,7 @@ const autoScoutAndFight = async (mode = 'both') => {
     return { completed: false, error: e.message }
   } finally {
     shouldStop = false
+    state.armyAssistantRunning = false
   }
 }
 
